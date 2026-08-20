@@ -1,9 +1,30 @@
 import { useState } from 'react'
-import { Link, useLocation } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
+import { useAuth } from '../context/AuthContext'
 
 export default function Navbar() {
   const [menuOpen, setMenuOpen] = useState(false)
   const { pathname } = useLocation()
+  const navigate = useNavigate()
+  const { user, logout } = useAuth()
+
+  const handleLogout = () => {
+    logout()
+    navigate('/')
+    setMenuOpen(false)
+  }
+
+  const navLink = (to, label) => (
+    <Link
+      to={to}
+      onClick={() => setMenuOpen(false)}
+      className={`text-sm font-medium transition-colors ${
+        pathname === to ? 'text-blue-600' : 'text-slate-600 hover:text-blue-600'
+      }`}
+    >
+      {label}
+    </Link>
+  )
 
   return (
     <nav className="bg-white border-b border-slate-100 sticky top-0 z-50 shadow-sm">
@@ -22,12 +43,37 @@ export default function Navbar() {
           </Link>
 
           {/* Desktop nav */}
-          <div className="hidden md:flex items-center gap-8">
-            <Link to="/" className={`text-sm font-medium transition-colors ${pathname === '/' ? 'text-blue-600' : 'text-slate-600 hover:text-blue-600'}`}>Home</Link>
-            <Link to="/login" className={`text-sm font-medium transition-colors ${pathname === '/login' ? 'text-blue-600' : 'text-slate-600 hover:text-blue-600'}`}>Login</Link>
-            <Link to="/register" className="bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold px-5 py-2 rounded-lg transition-colors">
-              Get Started
-            </Link>
+          <div className="hidden md:flex items-center gap-6">
+            {navLink('/', 'Home')}
+
+            {user ? (
+              <>
+                {navLink('/dashboard', 'Dashboard')}
+                {/* User avatar + name */}
+                <div className="flex items-center gap-3 pl-2 border-l border-slate-200">
+                  <div className="w-8 h-8 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center font-bold text-sm">
+                    {user.name.charAt(0).toUpperCase()}
+                  </div>
+                  <span className="text-sm font-medium text-slate-700">{user.name.split(' ')[0]}</span>
+                  <button
+                    onClick={handleLogout}
+                    className="text-sm font-semibold text-red-500 hover:text-red-700 transition-colors"
+                  >
+                    Logout
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
+                {navLink('/login', 'Login')}
+                <Link
+                  to="/register"
+                  className="bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold px-5 py-2 rounded-lg transition-colors"
+                >
+                  Get Started
+                </Link>
+              </>
+            )}
           </div>
 
           {/* Mobile hamburger */}
@@ -51,11 +97,32 @@ export default function Navbar() {
         {/* Mobile menu */}
         {menuOpen && (
           <div className="md:hidden pb-4 flex flex-col gap-4 border-t border-slate-100 pt-4">
-            <Link to="/" className="text-sm font-medium text-slate-600" onClick={() => setMenuOpen(false)}>Home</Link>
-            <Link to="/login" className="text-sm font-medium text-slate-600" onClick={() => setMenuOpen(false)}>Login</Link>
-            <Link to="/register" className="bg-blue-600 text-white text-sm font-semibold px-5 py-2 rounded-lg text-center" onClick={() => setMenuOpen(false)}>
-              Get Started
-            </Link>
+            {navLink('/', 'Home')}
+            {user ? (
+              <>
+                {navLink('/dashboard', 'Dashboard')}
+                <div className="flex items-center gap-2 text-sm text-slate-600">
+                  <div className="w-7 h-7 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center font-bold text-xs">
+                    {user.name.charAt(0).toUpperCase()}
+                  </div>
+                  {user.name}
+                </div>
+                <button onClick={handleLogout} className="text-sm font-semibold text-red-500 text-left">
+                  Logout
+                </button>
+              </>
+            ) : (
+              <>
+                {navLink('/login', 'Login')}
+                <Link
+                  to="/register"
+                  onClick={() => setMenuOpen(false)}
+                  className="bg-blue-600 text-white text-sm font-semibold px-5 py-2 rounded-lg text-center"
+                >
+                  Get Started
+                </Link>
+              </>
+            )}
           </div>
         )}
       </div>
