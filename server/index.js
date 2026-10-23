@@ -26,6 +26,14 @@ app.use('/api/ai',          aiRoutes);
 
 const AI_URL = process.env.AI_SERVICE_URL || 'http://localhost:8000';
 
+app.get('/', (_req, res) => {
+  res.json({
+    service: 'CivicSense API',
+    ok: true,
+    health: '/api/health',
+  });
+});
+
 app.get('/api/health', (_req, res) => {
   res.json({
     ok:  true,
