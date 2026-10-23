@@ -1,0 +1,337 @@
+/* ============================================================
+   CivicSense — Global Design System
+   Civic-tech palette · Inter · Lucide icons
+   ============================================================ */
+
+/* Inter from Google Fonts */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+
+/* ── Design Tokens ──────────────────────────────────────────── */
+:root {
+  /* Brand / Primary */
+  --navy:          #173B63;
+  --navy-dark:     #0f2847;
+  --navy-mid:      #1e4d80;
+  --teal:          #167D83;
+  --teal-light:    #1a9198;
+  --amber:         #E8A23A;
+  --amber-dark:    #C68A20;
+
+  /* Neutrals */
+  --bg:            #F5F7FA;
+  --surface:       #FFFFFF;
+  --surface-2:     #F0F3F8;
+  --border:        #DDE3EC;
+  --border-light:  #EDF0F5;
+  --text:          #64748B;
+  --text-h:        #202B38;
+  --text-light:    #94A3B8;
+
+  /* Semantic */
+  --success:       #23845B;
+  --success-bg:    #EDFAF4;
+  --warning:       #C68A20;
+  --warning-bg:    #FEF7E8;
+  --danger:        #C94C4C;
+  --danger-bg:     #FDEAEA;
+  --info:          #167D83;
+  --info-bg:       #E8F6F7;
+
+  /* Shadows */
+  --shadow-xs:  0 1px 2px rgba(23,59,99,0.06);
+  --shadow-sm:  0 2px 6px rgba(23,59,99,0.08), 0 1px 2px rgba(23,59,99,0.04);
+  --shadow-md:  0 4px 16px rgba(23,59,99,0.10), 0 2px 4px rgba(23,59,99,0.06);
+  --shadow-lg:  0 8px 32px rgba(23,59,99,0.12), 0 4px 8px rgba(23,59,99,0.06);
+
+  /* Radii */
+  --radius-sm:  4px;
+  --radius:     6px;
+  --radius-md:  8px;
+  --radius-lg:  12px;
+  --radius-xl:  16px;
+
+  /* Typography */
+  --font:       'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --mono:       'Cascadia Code', 'Fira Code', ui-monospace, 'Courier New', monospace;
+
+  /* Navbar height — used for sticky offset calculations */
+  --navbar-h:   56px;
+
+  font-family: var(--font);
+  font-size: 14px;
+  line-height: 1.6;
+  letter-spacing: 0.01em;
+  color: var(--text);
+  background: var(--bg);
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* ── Reset ──────────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--text); }
+img, svg { display: block; max-width: 100%; }
+button { font-family: var(--font); cursor: pointer; }
+input, select, textarea { font-family: var(--font); }
+
+#root {
+  min-height: 100svh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ── Typography ─────────────────────────────────────────────── */
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font);
+  color: var(--text-h);
+  line-height: 1.25;
+  font-weight: 700;
+  margin: 0;
+}
+h1 { font-size: 1.75rem; font-weight: 800; letter-spacing: -0.03em; }
+h2 { font-size: 1.25rem; font-weight: 700; letter-spacing: -0.02em; }
+h3 { font-size: 1.05rem; font-weight: 600; }
+h4 { font-size: 0.9rem;  font-weight: 600; }
+p  { margin: 0; line-height: 1.65; }
+a  { color: var(--navy); text-decoration: none; }
+a:hover { color: var(--teal); text-decoration: underline; }
+
+/* ── Shared Button Primitives ───────────────────────────────── */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  border-radius: var(--radius);
+  font-size: 13.5px;
+  font-weight: 600;
+  border: 1px solid transparent;
+  transition: background 0.15s, box-shadow 0.15s, opacity 0.15s, border-color 0.15s;
+  white-space: nowrap;
+  line-height: 1;
+}
+.btn:disabled { opacity: 0.48; cursor: not-allowed; }
+
+.btn-primary {
+  background: var(--navy);
+  color: #fff;
+  border-color: var(--navy);
+}
+.btn-primary:hover:not(:disabled) {
+  background: var(--navy-mid);
+  border-color: var(--navy-mid);
+  box-shadow: var(--shadow-sm);
+}
+
+.btn-secondary {
+  background: var(--teal);
+  color: #fff;
+  border-color: var(--teal);
+}
+.btn-secondary:hover:not(:disabled) {
+  background: var(--teal-light);
+  box-shadow: var(--shadow-sm);
+}
+
+.btn-outline {
+  background: var(--surface);
+  color: var(--text-h);
+  border-color: var(--border);
+}
+.btn-outline:hover:not(:disabled) {
+  background: var(--surface-2);
+  border-color: var(--navy);
+  color: var(--navy);
+}
+
+.btn-ghost {
+  background: transparent;
+  color: var(--text);
+  border-color: transparent;
+}
+.btn-ghost:hover:not(:disabled) {
+  background: var(--surface-2);
+  color: var(--text-h);
+}
+
+.btn-sm  { padding: 5px 11px; font-size: 12.5px; }
+.btn-lg  { padding: 11px 22px; font-size: 14.5px; }
+
+/* ── Shared Form Primitives ─────────────────────────────────── */
+.form-group { display: flex; flex-direction: column; gap: 5px; }
+
+.form-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-h);
+}
+.form-label .required { color: var(--danger); margin-left: 2px; }
+
+.form-input {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 9px 12px;
+  font-size: 13.5px;
+  color: var(--text-h);
+  width: 100%;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.form-input:focus {
+  outline: none;
+  border-color: var(--navy);
+  box-shadow: 0 0 0 3px rgba(23,59,99,0.1);
+}
+.form-input::placeholder { color: var(--text-light); }
+
+textarea.form-input { resize: vertical; min-height: 88px; }
+
+.form-hint {
+  font-size: 12px;
+  color: var(--text-light);
+}
+
+/* ── Page Layout ────────────────────────────────────────────── */
+.page-container {
+  max-width: 1180px;
+  width: 100%;
+  margin: 0 auto;
+  padding: 0 20px;
+}
+
+.page-title {
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: var(--text-h);
+  letter-spacing: -0.03em;
+}
+
+.page-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+}
+
+.section-label {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-light);
+}
+
+/* ── Shared Utility ─────────────────────────────────────────── */
+.sr-only {
+  position: absolute; width: 1px; height: 1px;
+  padding: 0; margin: -1px; overflow: hidden;
+  clip: rect(0,0,0,0); white-space: nowrap; border-width: 0;
+}
+
+.divider {
+  height: 1px;
+  background: var(--border-light);
+  border: none;
+  margin: 0;
+}
+
+/* ── Filter Bar ─────────────────────────────────────────────── */
+.filter-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.filter-input {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 7px 10px 7px 34px;
+  font-size: 13px;
+  color: var(--text-h);
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.filter-input:focus {
+  outline: none;
+  border-color: var(--navy);
+  box-shadow: 0 0 0 3px rgba(23,59,99,0.1);
+}
+.filter-input-wrap {
+  position: relative;
+}
+.filter-input-wrap .search-icon {
+  position: absolute;
+  left: 9px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-light);
+  pointer-events: none;
+}
+
+.filter-select {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 7px 10px;
+  font-size: 13px;
+  color: var(--text-h);
+  cursor: pointer;
+  transition: border-color 0.15s;
+}
+.filter-select:focus {
+  outline: none;
+  border-color: var(--navy);
+}
+
+/* ── Empty & Loading States ─────────────────────────────────── */
+.empty-state {
+  text-align: center;
+  padding: 56px 24px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  color: var(--text);
+}
+.empty-state__icon {
+  width: 48px;
+  height: 48px;
+  color: var(--text-light);
+  margin-bottom: 4px;
+}
+.empty-state__title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-h);
+  margin: 0;
+}
+.empty-state__desc {
+  font-size: 13.5px;
+  color: var(--text);
+  margin: 0;
+}
+
+/* ── Focus Ring ─────────────────────────────────────────────── */
+:focus-visible {
+  outline: 2px solid var(--navy);
+  outline-offset: 2px;
+}
+
+/* ── Scrollbar ──────────────────────────────────────────────── */
+::-webkit-scrollbar        { width: 5px; height: 5px; }
+::-webkit-scrollbar-track  { background: transparent; }
+::-webkit-scrollbar-thumb  { background: var(--border); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--text-light); }
+
+/* ── Leaflet z-index fix ────────────────────────────────────── */
+.leaflet-pane         { z-index: 1; }
+.leaflet-tile-pane    { z-index: 1; }
+.leaflet-overlay-pane { z-index: 2; }
+.leaflet-marker-pane  { z-index: 3; }
+.leaflet-popup-pane   { z-index: 4; }
+.leaflet-control      { z-index: 5; }

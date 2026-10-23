@@ -1,0 +1,15 @@
+.priority-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 7px;
+  border-radius: 3px;
+  font-size: 11px;
+  font-weight: 700;
+  white-space: nowrap;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  background: color-mix(in srgb, var(--chip-color) 11%, transparent);
+  color: var(--chip-color);
+  border: 1px solid color-mix(in srgb, var(--chip-color) 22%, transparent);
+  font-family: var(--font);
+}

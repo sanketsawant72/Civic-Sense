@@ -1,0 +1,51 @@
+.dept-complaints { display: flex; flex-direction: column; gap: 16px; }
+
+.dept-filters {
+  display: flex; gap: 8px; flex-wrap: wrap; align-items: center;
+}
+
+.dept-count {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 12.5px; color: var(--text-light); font-weight: 500; margin: 0;
+}
+
+.dept-table-wrap {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius-lg); overflow: hidden;
+}
+
+.dept-table {
+  width: 100%; border-collapse: collapse; font-size: 13px;
+}
+
+.dept-table th {
+  text-align: left; font-size: 11px; font-weight: 700;
+  color: var(--text-light); text-transform: uppercase;
+  letter-spacing: .06em; padding: 10px 14px;
+  border-bottom: 1px solid var(--border); background: var(--bg); white-space: nowrap;
+}
+
+.dept-table td {
+  padding: 10px 14px; border-bottom: 1px solid var(--border-light);
+  color: var(--text-h); vertical-align: middle;
+}
+
+.dept-table tr:last-child td { border-bottom: none; }
+.dept-table tbody tr:hover td { background: var(--bg); }
+
+.td-mono  { font-family: var(--mono); font-size: 11px; color: var(--text-light) !important; white-space: nowrap; }
+.td-title { max-width: 240px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.td-date  { font-size: 12px; color: var(--text-light) !important; white-space: nowrap; }
+
+/* inline select with chevron */
+.inline-sw { position: relative; display: inline-flex; align-items: center; }
+.inline-select {
+  appearance: none; -webkit-appearance: none;
+  background: color-mix(in srgb, var(--s-color) 10%, var(--surface));
+  border: 1px solid color-mix(in srgb, var(--s-color) 28%, var(--border));
+  color: var(--s-color); border-radius: var(--radius);
+  padding: 4px 24px 4px 8px; font-size: 12px; font-weight: 600;
+  cursor: pointer; font-family: var(--font); min-width: 100px;
+}
+.inline-select:focus { outline: none; box-shadow: 0 0 0 2px color-mix(in srgb, var(--s-color) 28%, transparent); }
+.inline-sw-icon { position: absolute; right: 6px; pointer-events: none; color: var(--s-color); }

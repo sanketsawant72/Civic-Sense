@@ -1,0 +1,96 @@
+.manage-depts { display: flex; flex-direction: column; gap: 18px; }
+
+.dept-sub { font-size: 13.5px; color: var(--text); margin: -6px 0 0; line-height: 1.6; }
+
+/* ── Toast ───────────────────────────────────────────────────── */
+.dept-toast {
+  display: flex; align-items: center; gap: 8px;
+  padding: 10px 14px; border-radius: var(--radius);
+  font-size: 13px; font-weight: 500;
+  position: fixed; bottom: 24px; right: 24px; z-index: 500;
+  box-shadow: var(--shadow-md); max-width: 380px;
+  animation: toast-in .2s ease;
+}
+@keyframes toast-in { from { opacity: 0; transform: translateY(8px); } }
+
+.dept-toast--success { background: var(--success-bg); color: var(--success); border: 1px solid color-mix(in srgb, var(--success) 25%, transparent); }
+.dept-toast--error   { background: var(--danger-bg);  color: var(--danger);  border: 1px solid color-mix(in srgb, var(--danger)  25%, transparent); }
+
+.dept-toast__close {
+  margin-left: auto; background: none; border: none; cursor: pointer;
+  color: inherit; opacity: .6; display: flex; align-items: center;
+}
+.dept-toast__close:hover { opacity: 1; }
+
+/* ── Grid ────────────────────────────────────────────────────── */
+.dept-loading { color: var(--text-light); font-size: 14px; padding: 32px; text-align: center; }
+
+.dept-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 14px;
+}
+
+.dept-card {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius-lg); padding: 18px 20px;
+  display: flex; flex-direction: column; gap: 8px;
+  transition: box-shadow .15s;
+}
+.dept-card:hover { box-shadow: var(--shadow-sm); }
+.dept-card--inactive { opacity: .6; }
+
+.dept-card__header { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+
+.dept-card__cat-badge {
+  display: inline-flex; align-items: center;
+  padding: 3px 9px; border-radius: 4px;
+  font-size: 11.5px; font-weight: 700;
+  background: color-mix(in srgb, var(--cat-color) 10%, transparent);
+  color: var(--cat-color);
+  border: 1px solid color-mix(in srgb, var(--cat-color) 22%, transparent);
+}
+
+.dept-card__inactive-tag {
+  font-size: 11px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: .06em; color: var(--danger); background: var(--danger-bg);
+  border: 1px solid color-mix(in srgb, var(--danger) 22%, transparent);
+  padding: 2px 7px; border-radius: 3px;
+}
+
+.dept-card__name  { font-size: 15px; font-weight: 700; color: var(--text-h); margin: 0; }
+.dept-card__login {
+  display: flex; align-items: center; gap: 5px;
+  font-size: 12.5px; color: var(--text); margin: 0;
+}
+.dept-card__phone { font-size: 12px; color: var(--text-light); margin: 0; }
+
+.dept-card__actions {
+  display: flex; gap: 8px; flex-wrap: wrap;
+  padding-top: 8px; border-top: 1px solid var(--border-light); margin-top: 4px;
+}
+
+.dept-card__delete {
+  background: none !important; border: 1px solid var(--border) !important;
+  color: var(--danger) !important;
+}
+.dept-card__delete:hover { background: var(--danger-bg) !important; }
+
+/* ── Form modal ──────────────────────────────────────────────── */
+.dept-form { display: flex; flex-direction: column; gap: 14px; }
+
+.dept-form-footer {
+  display: flex; justify-content: flex-end; gap: 10px;
+  padding-top: 8px; border-top: 1px solid var(--border-light); margin-top: 4px;
+}
+
+/* reuse auth-spinner from Login.css */
+.auth-spinner {
+  width: 15px; height: 15px;
+  border: 2px solid rgba(255,255,255,.35);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: spin .7s linear infinite;
+  flex-shrink: 0;
+}
+@keyframes spin { to { transform: rotate(360deg); } }

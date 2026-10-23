@@ -1,0 +1,121 @@
+.dept-dash { display: flex; flex-direction: column; gap: 24px; }
+
+.dept-dash__header { display: flex; flex-direction: column; gap: 6px; }
+
+.dept-dept-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px;
+  border-radius: var(--radius);
+  background: color-mix(in srgb, var(--cat-color) 10%, transparent);
+  color: var(--cat-color);
+  border: 1px solid color-mix(in srgb, var(--cat-color) 25%, transparent);
+  font-size: 12px;
+  font-weight: 700;
+  width: fit-content;
+}
+
+.dept-dash__sub { font-size: 13.5px; color: var(--text); margin: 0; }
+
+/* ── KPI row ─────────────────────────────────────────────────── */
+.dept-kpi-row {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 10px;
+}
+
+.dept-kpi {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 16px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.dept-kpi__icon {
+  width: 34px; height: 34px;
+  border-radius: var(--radius);
+  display: flex; align-items: center; justify-content: center;
+  margin-bottom: 4px;
+}
+
+.dept-kpi--default .dept-kpi__icon { background: rgba(23,59,99,.09); color: var(--navy); }
+.dept-kpi--green   .dept-kpi__icon { background: var(--success-bg);  color: var(--success); }
+.dept-kpi--amber   .dept-kpi__icon { background: var(--warning-bg);  color: var(--warning); }
+.dept-kpi--red     .dept-kpi__icon { background: var(--danger-bg);   color: var(--danger); }
+
+.dept-kpi__num {
+  font-size: 26px; font-weight: 800; line-height: 1;
+  letter-spacing: -0.04em; color: var(--text-h);
+}
+.dept-kpi--green .dept-kpi__num { color: var(--success); }
+.dept-kpi--amber .dept-kpi__num { color: var(--warning); }
+.dept-kpi--red   .dept-kpi__num { color: var(--danger);  }
+
+.dept-kpi__label { font-size: 12px; color: var(--text); font-weight: 500; }
+
+/* ── Action queue ────────────────────────────────────────────── */
+.dept-section { display: flex; flex-direction: column; gap: 14px; }
+
+.dept-empty {
+  display: flex; flex-direction: column; align-items: center;
+  gap: 10px; padding: 48px 20px;
+  color: var(--text-light); font-size: 14px; font-weight: 500;
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+}
+
+.dept-queue {
+  display: flex; flex-direction: column; gap: 0;
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius-lg); overflow: hidden;
+}
+
+.dept-queue-item {
+  display: flex; align-items: center; gap: 16px;
+  padding: 13px 18px;
+  border-bottom: 1px solid var(--border-light);
+  transition: background .1s;
+}
+.dept-queue-item:last-child { border-bottom: none; }
+.dept-queue-item:hover { background: var(--bg); }
+
+.dept-queue-item__left {
+  display: flex; flex-direction: column; gap: 3px; flex: 1; min-width: 0;
+}
+.dept-queue-item__id {
+  font-family: var(--mono); font-size: 11px;
+  color: var(--text-light); letter-spacing: .04em;
+}
+.dept-queue-item__title {
+  font-size: 13.5px; font-weight: 600; color: var(--text-h);
+  margin: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.dept-queue-item__time { font-size: 11.5px; color: var(--text-light); }
+
+.dept-queue-item__right {
+  display: flex; align-items: center; gap: 8px; flex-shrink: 0; flex-wrap: wrap;
+}
+
+/* inline status select */
+.dept-status-select {
+  appearance: none; -webkit-appearance: none;
+  background: color-mix(in srgb, var(--s-color) 10%, var(--surface));
+  border: 1px solid color-mix(in srgb, var(--s-color) 28%, var(--border));
+  color: var(--s-color);
+  border-radius: var(--radius); padding: 4px 10px;
+  font-size: 12px; font-weight: 600; cursor: pointer; font-family: var(--font);
+  min-width: 110px;
+}
+.dept-status-select:focus {
+  outline: none;
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--s-color) 28%, transparent);
+}
+
+@media (max-width: 1024px) { .dept-kpi-row { grid-template-columns: repeat(3, 1fr); } }
+@media (max-width: 640px)  { .dept-kpi-row { grid-template-columns: repeat(2, 1fr); }
+  .dept-queue-item { flex-wrap: wrap; }
+  .dept-queue-item__right { width: 100%; justify-content: flex-start; } }
