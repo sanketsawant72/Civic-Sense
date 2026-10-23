@@ -55,3 +55,17 @@ These fixed credentials are for local development only. Do not expose them or th
 ## Database and data
 
 Accounts and complaints are read from and written to the local MongoDB database; the frontend does not fall back to in-memory sample records. Running `npm run setup:local` creates or updates only the local admin and department accounts. It does not delete or seed complaint records. New complaints are saved to MongoDB.
+
+## Deploy the frontend to Vercel
+
+Import this GitHub repository into Vercel and configure the project:
+
+- Root Directory: repository root
+- Framework preset: Vite
+- Build command: `npm run build`
+- Output directory: `dist`
+- Environment variable: `VITE_API_BASE=https://<your-render-api>.onrender.com`
+
+Replace the example API URL with your Render service URL, without a trailing slash or `/api`. The root `vercel.json` rewrites frontend routes to `index.html` so direct links and browser refreshes work.
+
+After deploying, set the Render API's `CLIENT_ORIGIN` environment variable to the exact Vercel site origin (for example, `https://<your-project>.vercel.app`) and redeploy the API. Redeploy the Vercel site whenever you change `VITE_API_BASE`.
