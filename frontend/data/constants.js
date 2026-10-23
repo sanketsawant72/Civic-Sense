@@ -100,21 +100,21 @@ export const T = {
     cmap: 'Community Map', track: 'Track Complaint',
     dash: 'Dashboard', manage: 'Manage Complaints', amap: 'Map Overview',
     citizen: 'Citizen', admin: 'Admin',
-    resetData: 'Reset demo data', appName: 'CivicSense', appTag: 'Civic Reporting Platform',
+    appName: 'CivicSense', appTag: 'Civic Reporting Platform',
   },
   hi: {
     home: 'होम', report: 'शिकायत दर्ज करें', mine: 'मेरी शिकायतें',
     cmap: 'सामुदायिक मानचित्र', track: 'शिकायत ट्रैक करें',
     dash: 'डैशबोर्ड', manage: 'शिकायतें प्रबंधित करें', amap: 'मानचित्र अवलोकन',
     citizen: 'नागरिक', admin: 'प्रशासक',
-    resetData: 'डेमो डेटा रीसेट करें', appName: 'CivicSense', appTag: 'नागरिक शिकायत प्रणाली',
+    appName: 'CivicSense', appTag: 'नागरिक शिकायत प्रणाली',
   },
   mr: {
     home: 'मुख्यपृष्ठ', report: 'तक्रार नोंदवा', mine: 'माझ्या तक्रारी',
     cmap: 'सामुदायिक नकाशा', track: 'तक्रार ट्रॅक करा',
     dash: 'डॅशबोर्ड', manage: 'तक्रारी व्यवस्थापित करा', amap: 'नकाशा विहंगावलोकन',
     citizen: 'नागरिक', admin: 'प्रशासक',
-    resetData: 'डेमो डेटा रीसेट करा', appName: 'CivicSense', appTag: 'नागरी तक्रार प्रणाली',
+    appName: 'CivicSense', appTag: 'नागरी तक्रार प्रणाली',
   },
 };
 

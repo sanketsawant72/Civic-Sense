@@ -97,7 +97,7 @@ export default function App() {
           <Route path="/report"        element={<ProtectedRoute roles={['citizen']}><ReportIssue />    </ProtectedRoute>} />
           <Route path="/my-complaints" element={<ProtectedRoute roles={['citizen']}><MyComplaints />   </ProtectedRoute>} />
           <Route path="/map"           element={<ProtectedRoute roles={['citizen']}><CommunityMap />   </ProtectedRoute>} />
-          <Route path="/track"         element={<ProtectedRoute roles={['citizen']}><TrackComplaint /> </ProtectedRoute>} />
+          <Route path="/track"         element={<ProtectedRoute roles={['citizen', 'department']}><TrackComplaint /> </ProtectedRoute>} />
 
           {/* Admin */}
           <Route path="/admin"              element={<ProtectedRoute roles={['admin']}><Dashboard />         </ProtectedRoute>} />

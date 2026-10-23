@@ -1,16 +1,57 @@
-# React + Vite
+# CivicSense
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+Civic issue reporting and complaint management for Ashta, Maharashtra. The app uses a React/Vite frontend, an Express API, and a local MongoDB database. The optional AI image-classification service runs separately.
 
-Currently, two official plugins are available:
+## Run locally on Windows
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+Install Node.js and MongoDB Community Server, then start the MongoDB service. From the project root in PowerShell:
 
-## React Compiler
+```powershell
+npm install
+npm install --prefix server
+Copy-Item server\.env.example server\.env
+```
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+Edit `server\.env` and replace the `JWT_SECRET` placeholder with a private value. Generate one with:
 
-## Expanding the Oxlint configuration
+```powershell
+node -e "console.log(require('node:crypto').randomBytes(32).toString('hex'))"
+```
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and Oxlint's TypeScript related rules in your project.
+The default `MONGO_URI` is `mongodb://127.0.0.1:27017/civicsense`. The API explicitly loads `server\.env` and fails to start if MongoDB or the JWT secret is unavailable.
+
+Start the local frontend and API. This creates/resets only the local admin and department logins before starting; it does not alter complaints:
+
+```powershell
+npm run dev:local
+```
+
+Alternatively, set up accounts separately with `npm run setup:local`, then start the app with `npm run dev:no-ai`.
+
+```powershell
+npm run dev:no-ai
+```
+
+Open **http://localhost:5173**. To run the optional AI image service too, install Python 3.10+ and run `npm run dev:full`; its first start installs the packages in `ai-service\requirements.txt`. Run `npm run setup:local` first if you have not already created local accounts.
+
+## Local login accounts
+
+All seven department accounts use the local development password `Dept@1234`:
+
+| Department | Email |
+|---|---|
+| Public Works | `pwd@civicsense.in` |
+| Sanitation | `sanitation@civicsense.in` |
+| Drainage & Sewage | `drainage@civicsense.in` |
+| Water Supply | `water@civicsense.in` |
+| Electrical | `electrical@civicsense.in` |
+| Town Planning | `planning@civicsense.in` |
+| General Administration | `general@civicsense.in` |
+
+Local admin: `admin@civicsense.in` / `Admin@1234`. Citizens create their own account from the registration page.
+
+These fixed credentials are for local development only. Do not expose them or the local `.env` file in a public deployment.
+
+## Database and data
+
+Accounts and complaints are read from and written to the local MongoDB database; the frontend does not fall back to in-memory sample records. Running `npm run setup:local` creates or updates only the local admin and department accounts. It does not delete or seed complaint records. New complaints are saved to MongoDB.

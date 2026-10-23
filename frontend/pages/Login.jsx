@@ -206,29 +206,28 @@ export default function Login() {
           </button>
         </form>
 
-        {/* ── Demo credentials ── */}
-        <div className="demo-creds">
-          <p className="demo-creds__label">Demo credentials</p>
-          {selectedRole === 'citizen' && (
-            <div className="demo-creds__row">
-              <span>citizen@civicsense.in</span>
-              <span className="demo-creds__pwd">Citizen@1234</span>
-            </div>
-          )}
-          {selectedRole === 'admin' && (
-            <div className="demo-creds__row">
-              <span>admin@civicsense.in</span>
-              <span className="demo-creds__pwd">Admin@1234</span>
-            </div>
-          )}
-          {selectedRole === 'department' && (
-            <div className="demo-creds__rows">
-              <div className="demo-creds__row"><span>pwd@civicsense.in</span><span className="demo-creds__pwd">Dept@1234</span></div>
-              <div className="demo-creds__row"><span>water@civicsense.in</span><span className="demo-creds__pwd">Dept@1234</span></div>
-              <div className="demo-creds__row"><span>electrical@civicsense.in</span><span className="demo-creds__pwd">Dept@1234</span></div>
-            </div>
-          )}
-        </div>
+        {import.meta.env.DEV && (selectedRole === 'admin' || selectedRole === 'department') && (
+          <div className="demo-creds">
+            <p className="demo-creds__label">Local development login</p>
+            {selectedRole === 'admin' && (
+              <div className="demo-creds__row">
+                <span>admin@civicsense.in</span>
+                <span className="demo-creds__pwd">Admin@1234</span>
+              </div>
+            )}
+            {selectedRole === 'department' && (
+              <div className="demo-creds__rows">
+                <div className="demo-creds__row"><span>pwd@civicsense.in</span><span className="demo-creds__pwd">Dept@1234</span></div>
+                <div className="demo-creds__row"><span>sanitation@civicsense.in</span><span className="demo-creds__pwd">Dept@1234</span></div>
+                <div className="demo-creds__row"><span>drainage@civicsense.in</span><span className="demo-creds__pwd">Dept@1234</span></div>
+                <div className="demo-creds__row"><span>water@civicsense.in</span><span className="demo-creds__pwd">Dept@1234</span></div>
+                <div className="demo-creds__row"><span>electrical@civicsense.in</span><span className="demo-creds__pwd">Dept@1234</span></div>
+                <div className="demo-creds__row"><span>planning@civicsense.in</span><span className="demo-creds__pwd">Dept@1234</span></div>
+                <div className="demo-creds__row"><span>general@civicsense.in</span><span className="demo-creds__pwd">Dept@1234</span></div>
+              </div>
+            )}
+          </div>
+        )}
 
         {selectedRole === 'citizen' && (
           <p className="auth-footer-text">

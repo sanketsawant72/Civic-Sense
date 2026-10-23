@@ -90,10 +90,6 @@ export function deleteComplaint(id) {
   return request(`/complaints/${encodeURIComponent(id)}`, { method: 'DELETE' });
 }
 
-export function seedComplaints() {
-  return request('/complaints/seed', { method: 'POST' });
-}
-
 // ── Departments (admin only) ──────────────────────────────────────────────────
 export function fetchDepartments() {
   return request('/departments');

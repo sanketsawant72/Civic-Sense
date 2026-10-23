@@ -1,7 +1,11 @@
 import jwt  from 'jsonwebtoken';
 import User from '../models/User.js';
 
-const JWT_SECRET = process.env.JWT_SECRET || 'civicsense-dev-secret-change-in-prod';
+const JWT_SECRET = process.env.JWT_SECRET;
+
+if (!JWT_SECRET || JWT_SECRET === 'replace-with-a-long-random-secret') {
+  throw new Error('Set a private JWT_SECRET in server/.env before starting the API.');
+}
 
 // ── Sign a token ─────────────────────────────────────────────────────────────
 export function signToken(user) {

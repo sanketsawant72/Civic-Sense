@@ -1,6 +1,5 @@
 import { Router } from 'express';
 import Complaint from '../models/Complaint.js';
-import { DEMO_SEED } from '../seed-data.js';
 import { protect, requireRole } from '../middleware/auth.js';
 
 const router = Router();
@@ -11,14 +10,6 @@ function makeId() {
 function asyncHandler(fn) {
   return (req, res, next) => Promise.resolve(fn(req, res, next)).catch(next);
 }
-
-// ── POST /api/complaints/seed  — must be BEFORE /:id ────────────────────────
-router.post('/seed', protect, requireRole('admin'), asyncHandler(async (_req, res) => {
-  await Complaint.deleteMany({});
-  const docs = DEMO_SEED.map((d) => ({ ...d, cid: makeId() }));
-  const inserted = await Complaint.insertMany(docs);
-  res.json({ seeded: inserted.length });
-}));
 
 // ── GET /api/complaints  — role-filtered list ────────────────────────────────
 router.get('/', protect, asyncHandler(async (req, res) => {

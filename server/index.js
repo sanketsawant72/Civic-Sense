@@ -1,4 +1,4 @@
-import 'dotenv/config';
+import './config/env.js';
 import express         from 'express';
 import cors            from 'cors';
 import mongoose        from 'mongoose';
@@ -50,7 +50,7 @@ app.use((err, _req, res, _next) => {
 mongoose
   .connect(MONGO)
   .then(() => {
-    console.log(`✔  MongoDB connected  → ${MONGO}`);
+    console.log(`✔  MongoDB connected  → ${mongoose.connection.host}/${mongoose.connection.name}`);
     app.listen(PORT, () =>
       console.log(`✔  CivicSense API     → http://localhost:${PORT}`)
     );

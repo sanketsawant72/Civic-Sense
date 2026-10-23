@@ -6,7 +6,6 @@ import {
   createComplaint,
   patchStatus,
   patchPriority,
-  seedComplaints,
   checkHealth,
 } from '../utils/api.js';
 
@@ -81,17 +80,6 @@ export const useStore = create(
           }));
         } catch (err) {
           set({ error: err.message });
-        }
-      },
-
-      // ── Reset to demo data (calls /api/complaints/seed) ──────────────────
-      resetData: async () => {
-        set({ loading: true, error: null });
-        try {
-          await seedComplaints();
-          await get().loadComplaints();
-        } catch (err) {
-          set({ loading: false, error: err.message });
         }
       },
 
