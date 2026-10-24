@@ -1,6 +1,6 @@
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import {
-  Building2, User, Layers,
+  Building2, User, Layers, ShieldCheck,
   ArrowRight, MapPin, CheckCircle2, ClipboardList, Globe,
 } from 'lucide-react';
 import './Landing.css';
@@ -96,6 +96,19 @@ export default function Landing() {
           </div>
         ))}
       </section>
+
+      <nav className="landing-staff-login" aria-label="Staff sign in">
+        <span className="landing-staff-login__label">Municipal staff?</span>
+        <Link to="/admin/login" className="landing-staff-login__link">
+          <ShieldCheck size={15} strokeWidth={2} aria-hidden="true" />
+          Admin sign in
+        </Link>
+        <span className="landing-staff-login__separator" aria-hidden="true">·</span>
+        <Link to="/department/login" className="landing-staff-login__link">
+          <Layers size={15} strokeWidth={2} aria-hidden="true" />
+          Department sign in
+        </Link>
+      </nav>
 
       {/* ── Stats strip ── */}
       <section className="landing-stats" aria-label="Platform statistics">
