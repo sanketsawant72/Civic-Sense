@@ -59,21 +59,26 @@ function PinPicker({ position, setPosition }) {
 }
 
 function getDeviceLocation() {
-  return new Promise((resolve) => {
-    if (!navigator.geolocation) {
-      resolve(null);
-      return;
-    }
+  if (!navigator.geolocation) {
+    return Promise.reject(new Error('This browser does not support device location.'));
+  }
+  if (!window.isSecureContext) {
+    return Promise.reject(new Error('Device location requires HTTPS. Open the secure site and try again.'));
+  }
 
-    try {
-      navigator.geolocation.getCurrentPosition(
-        ({ coords }) => resolve({ lat: coords.latitude, lng: coords.longitude }),
-        () => resolve(null),
-        { enableHighAccuracy: true, maximumAge: 30000, timeout: 12000 }
-      );
-    } catch {
-      resolve(null);
-    }
+  return new Promise((resolve, reject) => {
+    navigator.geolocation.getCurrentPosition(
+      ({ coords }) => resolve({ lat: coords.latitude, lng: coords.longitude }),
+      (error) => {
+        const messages = {
+          1: 'Location permission is blocked. Allow location access for this site in your browser settings, then retry.',
+          2: 'Your device could not determine its location. Turn on device location services and retry.',
+          3: 'Location lookup timed out. Check device location services and retry.',
+        };
+        reject(new Error(messages[error.code] || 'Could not determine device location. Retry or pin the issue on the map.'));
+      },
+      { enableHighAccuracy: true, maximumAge: 30000, timeout: 20000 }
+    );
   });
 }
 
@@ -157,8 +162,8 @@ export default function ReportIssue() {
     }
 
     const requestId = ++classificationRequestRef.current;
-    const deviceLocationPromise = getDeviceLocation();
     setPhotoError('');
+    setGpsError('');
     setAiStatus('loading');
     setAiResult(null);
     setAiAccepted(false);
@@ -174,21 +179,20 @@ export default function ReportIssue() {
       const locationPromise = extractGpsFromFile(file)
         .then(async (photoGps) => {
           if (photoGps) return { ...photoGps, source: 'exif' };
-          const deviceGps = await deviceLocationPromise;
-          return deviceGps ? { ...deviceGps, source: 'gps' } : null;
+          const deviceGps = await getDeviceLocation();
+          return { ...deviceGps, source: 'gps' };
         })
         .then((location) => {
           if (requestId !== classificationRequestRef.current) return;
-          if (location) {
-            setPosition([location.lat, location.lng]);
-            setLocSource(location.source);
-            setExifStatus(location.source === 'exif' ? 'found' : 'device_found');
-          } else {
+          setPosition([location.lat, location.lng]);
+          setLocSource(location.source);
+          setExifStatus(location.source === 'exif' ? 'found' : 'device_found');
+        })
+        .catch((error) => {
+          if (requestId === classificationRequestRef.current) {
+            setGpsError(error.message);
             setExifStatus('not_found');
           }
-        })
-        .catch(() => {
-          if (requestId === classificationRequestRef.current) setExifStatus('not_found');
         });
 
       const result = await classifyImage(url, file.name);
@@ -205,7 +209,7 @@ export default function ReportIssue() {
         setAiStatus('error');
         setPhotoError(
           result.fallback
-            ? 'Photo verification is unavailable. You can continue, but select the issue category manually; this photo has not been verified.'
+            ? 'The AI photo check is offline. Your photo is still attached; choose the category that matches your report.'
             : 'We could not verify a civic issue in this photo. You can continue, but select the issue category manually; a clearer close-up may help verification.'
         );
         return;
@@ -244,31 +248,19 @@ export default function ReportIssue() {
   }
 
   // ── Use browser GPS ────────────────────────────────────────────────────────
-  function useCurrentLocation() {
-    if (!navigator.geolocation) {
-      setGpsError('Geolocation is not supported by your browser.');
-      return;
-    }
+  async function useCurrentLocation() {
     setGpsLoading(true);
     setGpsError('');
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        const coords = [pos.coords.latitude, pos.coords.longitude];
-        setPosition(coords);
-        setLocSource('gps');
-        setGpsLoading(false);
-      },
-      (err) => {
-        const messages = {
-          1: 'Location permission denied. Please allow location access and try again.',
-          2: 'Location unavailable. Try again or pin manually on the map.',
-          3: 'Location request timed out. Please try again.',
-        };
-        setGpsError(messages[err.code] || 'Could not get location. Pin manually on the map.');
-        setGpsLoading(false);
-      },
-      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
-    );
+    try {
+      const coords = await getDeviceLocation();
+      setPosition([coords.lat, coords.lng]);
+      setLocSource('gps');
+      setExifStatus('device_found');
+    } catch (error) {
+      setGpsError(error.message);
+    } finally {
+      setGpsLoading(false);
+    }
   }
 
   // ── Submit ─────────────────────────────────────────────────────────────────
@@ -393,6 +385,8 @@ export default function ReportIssue() {
             <p className="step-desc">
               Start by capturing a photo of the issue. We’ll use its GPS metadata when
               available, or request your current device location and place it on the map.
+              For an older uploaded photo without GPS metadata, device location is where
+              you are now, not necessarily where the photo was taken.
             </p>
 
             {photo ? (
@@ -408,6 +402,7 @@ export default function ReportIssue() {
                       setExifStatus(null);
                       setPosition(null);
                       setLocSource('');
+                      setGpsError('');
                       setAiStatus('idle');
                       setAiResult(null);
                       setPhotoError('');
@@ -425,7 +420,7 @@ export default function ReportIssue() {
                       <div className="exif-spinner" aria-hidden="true" />
                       <div>
                         <p className="exif-card__title">Finding the photo location…</p>
-                        <p className="exif-card__sub">Checking photo GPS and requesting device location</p>
+                        <p className="exif-card__sub">Checking photo GPS first; device location is used if it is missing</p>
                       </div>
                     </div>
                   )}
@@ -462,8 +457,19 @@ export default function ReportIssue() {
                       <div>
                         <p className="exif-card__title">Could not get a location</p>
                         <p className="exif-card__sub">
-                          Allow location access in your browser, or pin the issue manually on the map in the Review step.
+                          {gpsError || 'Allow location access in your browser, then retry.'}
                         </p>
+                        <button
+                          type="button"
+                          className="use-location-btn"
+                          onClick={useCurrentLocation}
+                          disabled={gpsLoading}
+                        >
+                          {gpsLoading
+                            ? <><span className="gps-spinner" aria-hidden="true" /> Getting location…</>
+                            : <><Navigation size={15} strokeWidth={2} aria-hidden="true" /> Retry device location</>
+                          }
+                        </button>
                       </div>
                     </div>
                   )}
@@ -585,7 +591,10 @@ export default function ReportIssue() {
                   )}
 
                   {aiStatus === 'error' && (
-                    <div className="ai-classify-card ai-classify-card--offline">
+                    <div
+                      className={`ai-classify-card ${aiResult?.fallback ? 'ai-classify-card--notice' : 'ai-classify-card--offline'}`}
+                      role="status"
+                    >
                       <Brain size={14} strokeWidth={2} aria-hidden="true" />
                       <span>{photoError}</span>
                     </div>

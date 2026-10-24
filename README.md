@@ -34,7 +34,9 @@ npm run dev:no-ai
 
 Open **http://localhost:5173**. To run the optional AI image service too, install Python 3.10+ and run `npm run dev:full`; its first start installs the packages in `ai-service\requirements.txt`. Run `npm run setup:local` first if you have not already created local accounts.
 
-If the optional AI service is offline, reports can still be submitted with a photo. The photo is not marked as verified, and the reporter must choose the issue category manually.
+When a photo is added, the app reads GPS coordinates from its metadata when available. If the photo has no GPS metadata, it requests the device's current location and pins that on the report; this requires browser location permission and a secure HTTPS origin (localhost is also allowed). For an older or forwarded upload, the device location is where the reporter is now, not necessarily where the photo was taken. The photo must contain GPS metadata to recover its original capture location.
+
+If the optional AI service is offline, reports can still be submitted with a photo. The photo is attached but not marked as AI-verified, and the reporter chooses the issue category manually. The default YOLO model is not trained for civic issues; reliable civic photo verification requires deploying the AI service and providing civic-issue model weights as described in [ai-service/README.md](./ai-service/README.md).
 
 ## Local login accounts
 

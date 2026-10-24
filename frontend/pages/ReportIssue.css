@@ -1100,3 +1100,14 @@
   font-size: 12.5px;
   color: var(--text-light);
 }
+
+.ai-classify-card--notice {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  background: var(--info-bg);
+  border-color: color-mix(in srgb, var(--teal) 22%, transparent);
+  font-size: 12.5px;
+  color: var(--text);
+}
