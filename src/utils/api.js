@@ -94,6 +94,13 @@ export function seedComplaints() {
   return request('/complaints/seed', { method: 'POST' });
 }
 
+export function classifyImage(image, filename = 'photo.jpg') {
+  return request('/ai/classify', {
+    method: 'POST',
+    body: JSON.stringify({ image, filename }),
+  });
+}
+
 // ── Departments (admin only) ──────────────────────────────────────────────────
 export function fetchDepartments() {
   return request('/departments');

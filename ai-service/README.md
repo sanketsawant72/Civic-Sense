@@ -48,19 +48,28 @@ Service runs on **http://localhost:8000**
 
 ```json
 {
-  "category": "pothole",
-  "category_label": "Pothole & Road Damage",
-  "confidence": 0.87,
-  "top_label": "car",
-  "detected_objects": [
-    { "label": "car", "confidence": 0.87, "bbox": [0.1, 0.2, 0.5, 0.6] }
-  ],
+  "category": "other",
+  "category_label": "Other Civic Issue",
+  "confidence": 0.0,
+  "top_label": "unknown",
+  "detected_objects": [],
   "ai_powered": true,
   "model": "YOLOv8n"
 }
 ```
 
+The report form accepts a photo only when the classifier finds a direct civic-issue
+label at 40% confidence or higher, and blocks submission if the selected report
+category does not match the photo. Unrecognized images return `other`; everyday
+objects (for example cars, bottles, and traffic lights) are deliberately not used
+as evidence of an issue.
+
 ## Custom model
 
 Replace `model/yolov8n.pt` with your fine-tuned weights and update
-the `LABEL_TO_CATEGORY` mapping in `main.py`.
+the exact-label `LABEL_TO_CATEGORY` mapping in `main.py`. The stock YOLOv8 COCO
+weights do not recognize most civic conditions (including potholes, power faults,
+and illegal construction), so strict photo verification requires civic-issue
+weights trained to emit the supported labels. Until those weights are installed,
+the form rejects photos the model cannot verify rather than accepting unrelated
+images.

@@ -290,6 +290,23 @@
   margin: 0;
 }
 
+.photo-ai-status {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  margin: 0 0 14px;
+  font-size: 12.5px;
+  line-height: 1.5;
+}
+
+.photo-ai-status svg { flex: 0 0 auto; margin-top: 1px; }
+.photo-ai-status--checking { color: var(--text); background: var(--bg); }
+.photo-ai-status--verified { color: var(--success); background: var(--success-bg); border-color: color-mix(in srgb, var(--success) 25%, transparent); }
+.photo-ai-status--rejected { color: var(--warning); background: var(--warning-bg); border-color: color-mix(in srgb, var(--warning) 25%, transparent); }
+
 /* ── EXIF status banners ─────────────────────────────────────── */
 .exif-status {
   display: flex;

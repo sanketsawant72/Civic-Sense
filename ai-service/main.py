@@ -43,87 +43,43 @@ app.add_middleware(
 )
 
 # ── Civic category mapping ────────────────────────────────────────────────────
-# Maps YOLO class labels (or keywords in labels) → CivicSense category IDs
-# YOLOv8 COCO labels relevant to civic issues are mapped here.
-# When using a custom-trained model, add/replace these mappings.
+# Only map labels that directly describe civic-issue evidence. Generic objects
+# (such as cars, bottles, furniture, or traffic lights) are not proof of an issue.
+# Add labels here when using a custom model trained to recognize civic problems.
 LABEL_TO_CATEGORY = {
-    # Road / pothole related
-    "pothole":         "pothole",
-    "road":            "pothole",
-    "crack":           "pothole",
-    "asphalt":         "pothole",
-    "pavement":        "pothole",
-
-    # Garbage / waste
-    "garbage":         "garbage",
-    "trash":           "garbage",
-    "waste":           "garbage",
-    "rubbish":         "garbage",
-    "litter":          "garbage",
-    "bin":             "garbage",
-    "suitcase":        "garbage",   # COCO — often confused with waste bags
-
-    # Drainage / water logging
-    "drainage":        "drainage",
-    "flood":           "drainage",
-    "waterlog":        "drainage",
-    "manhole":         "drainage",
-    "puddle":          "drainage",
-
-    # Water supply
-    "pipe":            "water",
-    "leakage":         "water",
-    "tap":             "water",
-    "hydrant":         "water",
-
-    # Street light / electrical
-    "streetlight":     "streetlight",
-    "light":           "streetlight",
-    "pole":            "streetlight",
-    "wire":            "streetlight",
-    "electricity":     "streetlight",
-    "electrical":      "streetlight",
-
-    # Illegal construction
-    "construction":    "construction",
-    "building":        "construction",
-    "encroachment":    "construction",
-
-    # COCO objects that appear at civic issue scenes
-    "car":             "pothole",       # Cars on broken roads
-    "truck":           "pothole",
-    "person":          "other",
-    "bicycle":         "other",
-    "motorcycle":      "other",
-    "bus":             "pothole",
-    "traffic light":   "streetlight",
-    "stop sign":       "streetlight",
-    "fire hydrant":    "water",
-    "bench":           "other",
-    "backpack":        "garbage",
-    "handbag":         "garbage",
-    "bottle":          "garbage",
-    "cup":             "garbage",
-    "bowl":            "garbage",
-    "banana":          "garbage",
-    "apple":           "garbage",
-    "orange":          "garbage",
-    "pizza":           "garbage",
-    "donut":           "garbage",
-    "cake":            "garbage",
-    "chair":           "garbage",
-    "couch":           "garbage",
-    "potted plant":    "other",
-    "tv":              "other",
-    "laptop":          "other",
-    "cell phone":      "other",
-    "book":            "other",
-    "clock":           "other",
-    "vase":            "garbage",
-    "scissors":        "other",
-    "teddy bear":      "garbage",
-    "hair drier":      "other",
-    "toothbrush":      "garbage",
+    "pothole": "pothole",
+    "road damage": "pothole",
+    "road crack": "pothole",
+    "broken road": "pothole",
+    "garbage": "garbage",
+    "trash": "garbage",
+    "waste": "garbage",
+    "rubbish": "garbage",
+    "litter": "garbage",
+    "overflowing bin": "garbage",
+    "illegal dumping": "garbage",
+    "drainage": "drainage",
+    "sewage": "drainage",
+    "blocked drain": "drainage",
+    "flooding": "drainage",
+    "waterlogging": "drainage",
+    "manhole": "drainage",
+    "pipe burst": "water",
+    "water leak": "water",
+    "leakage": "water",
+    "streetlight": "streetlight",
+    "street light": "streetlight",
+    "street lamp": "streetlight",
+    "electric pole": "streetlight",
+    "utility pole": "streetlight",
+    "power line": "streetlight",
+    "electrical wire": "streetlight",
+    "exposed wire": "streetlight",
+    "transformer": "streetlight",
+    "electrical fault": "streetlight",
+    "illegal construction": "construction",
+    "unauthorized construction": "construction",
+    "encroachment": "construction",
 }
 
 # Human-readable names per category (for display)
@@ -183,15 +139,7 @@ def decode_base64_image(b64: str) -> Image.Image:
 
 def map_label_to_category(label: str) -> str:
     """Return CivicSense category id for a YOLO class label."""
-    label_lower = label.lower()
-    # Exact match
-    if label_lower in LABEL_TO_CATEGORY:
-        return LABEL_TO_CATEGORY[label_lower]
-    # Partial keyword match
-    for keyword, cat in LABEL_TO_CATEGORY.items():
-        if keyword in label_lower:
-            return cat
-    return "other"
+    return LABEL_TO_CATEGORY.get(label.strip().lower(), "other")
 
 
 def pick_best_detection(results) -> tuple[str, str, float, list]:

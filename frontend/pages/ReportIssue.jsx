@@ -51,6 +51,8 @@ const PRIORITY_META = {
   Critical: { color: '#C94C4C', bg: '#FDEAEA' },
 };
 
+const PHOTO_CONFIDENCE_THRESHOLD = 0.4;
+
 function PinPicker({ position, setPosition }) {
   useMapEvents({ click(e) { setPosition([e.latlng.lat, e.latlng.lng]); } });
   return position ? <Marker position={position} /> : null;
@@ -94,11 +96,13 @@ export default function ReportIssue() {
   // ── YOLOv8 AI classification state ─────────────────────────────────────────
   const [aiStatus,  setAiStatus]  = useState('idle');   // 'idle'|'loading'|'done'|'error'
   const [aiResult,  setAiResult]  = useState(null);     // ClassifyResponse from Python
+  const [photoError, setPhotoError] = useState('');
   // If user accepts AI suggestion, it overrides their manual category pick
   const [aiAccepted, setAiAccepted] = useState(false);
 
   const fileRef   = useRef();
   const cameraRef = useRef();
+  const classificationRequestRef = useRef(0);
 
   // ── Live AI-style analysis (updates as user types) ────────────────────────
   const analysis = analyzeComplaint(title, desc, category);
@@ -107,13 +111,17 @@ export default function ReportIssue() {
   const urgMeta  = URGENCY_META[analysis.urgency];
   const priMeta  = PRIORITY_META[analysis.priority] || PRIORITY_META.Low;
   const UrgIcon  = urgMeta.icon;
+  const selectedCategory = category || analysis.category;
+  const photoCategoryMismatch = Boolean(
+    aiStatus === 'done' && aiResult && selectedCategory !== aiResult.category
+  );
 
   // ── Step validation ────────────────────────────────────────────────────────
   // Step 1: photo required (camera or upload). Position auto-filled if EXIF found.
   // Step 2: title + desc required.
   const canNext = {
-    1: !!photo,
-    2: title.trim().length >= 5 && desc.trim().length >= 10,
+    1: !!photo && aiStatus === 'done' && !photoCategoryMismatch,
+    2: title.trim().length >= 5 && desc.trim().length >= 10 && !photoCategoryMismatch,
     3: true,
   };
 
@@ -122,39 +130,80 @@ export default function ReportIssue() {
 
   // ── Photo handling ─────────────────────────────────────────────────────────
   async function handleFile(file) {
-    if (!file || !file.type.startsWith('image/')) return;
-    const url = await readFileAsDataUrl(file);
-    setPhoto(url);
-    setExifStatus('extracting');
-    // Reset previous AI result
+    if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      setPhotoError('Please choose an image file showing the civic issue.');
+      return;
+    }
+
+    const requestId = ++classificationRequestRef.current;
+    setPhotoError('');
     setAiStatus('loading');
     setAiResult(null);
     setAiAccepted(false);
 
-    // Run EXIF and AI classification in parallel
-    const [gps] = await Promise.all([
-      extractGpsFromFile(file),
-      classifyImage(url, file.name).then((result) => {
-        setAiResult(result);
-        setAiStatus(result.fallback ? 'error' : 'done');
-        // Auto-apply AI suggestion if no manual category was chosen yet
-        if (!result.fallback && result.confidence >= 0.4 && !category) {
-          setCategory(result.category);
-          setAiAccepted(true);
-        }
-      }).catch(() => setAiStatus('error')),
-    ]);
+    try {
+      const url = await readFileAsDataUrl(file);
+      if (requestId !== classificationRequestRef.current) return;
+      setPhoto(url);
+      setExifStatus(null);
 
-    if (gps) {
-      setPosition([gps.lat, gps.lng]);
-      setExifStatus('found');
-      setLocSource('exif');
-    } else {
-      setExifStatus('not_found');
+      const result = await classifyImage(url, file.name);
+      if (requestId !== classificationRequestRef.current) return;
+      setAiResult(result);
+
+      const knownCategory = CATEGORIES.some((item) => item.id === result.category);
+      if (
+        result.fallback ||
+        !knownCategory ||
+        result.category === 'other' ||
+        result.confidence < PHOTO_CONFIDENCE_THRESHOLD
+      ) {
+        setAiStatus(result.fallback ? 'error' : 'rejected');
+        setPhotoError(
+          result.fallback
+            ? 'Photo verification is unavailable. Please try again when the verifier is online.'
+            : 'We could not verify a civic issue in this photo. Upload a clear, close-up photo of the issue.'
+        );
+        return;
+      }
+
+      if (category && category !== result.category) {
+        setAiStatus('rejected');
+        setPhotoError(
+          `This photo appears to show ${CATEGORIES.find((item) => item.id === result.category)?.label.en}, not ${CATEGORIES.find((item) => item.id === category)?.label.en}. Upload a matching photo.`
+        );
+        return;
+      }
+
+      setAiStatus('done');
+      if (!category) {
+        setCategory(result.category);
+        setAiAccepted(true);
+      }
+
+      setExifStatus('extracting');
+      const gps = await extractGpsFromFile(file);
+      if (requestId !== classificationRequestRef.current) return;
+      if (gps) {
+        setPosition([gps.lat, gps.lng]);
+        setExifStatus('found');
+        setLocSource('exif');
+      } else {
+        setExifStatus('not_found');
+      }
+    } catch {
+      if (requestId !== classificationRequestRef.current) return;
+      setAiStatus('error');
+      setPhotoError('Photo verification failed. Please try again.');
     }
   }
 
-  async function handlePhotoChange(e) { await handleFile(e.target.files[0]); }
+  async function handlePhotoChange(e) {
+    const file = e.target.files[0];
+    e.target.value = '';
+    await handleFile(file);
+  }
   async function handleDrop(e) {
     e.preventDefault();
     setDragOver(false);
@@ -191,6 +240,7 @@ export default function ReportIssue() {
 
   // ── Submit ─────────────────────────────────────────────────────────────────
   async function handleSubmit() {
+    if (!canNext[1] || !canNext[2]) return;
     setSubmitting(true);
     const [lat, lng] = position || [ASHTA.lat, ASHTA.lng];
     try {
@@ -319,7 +369,16 @@ export default function ReportIssue() {
                   <img src={photo} alt="Captured issue" className="photo-captured__img" />
                   <button
                     className="photo-captured__retake"
-                    onClick={() => { setPhoto(null); setExifStatus(null); setPosition(null); }}
+                    onClick={() => {
+                      classificationRequestRef.current += 1;
+                      setPhoto(null);
+                      setExifStatus(null);
+                      setPosition(null);
+                      setLocSource('');
+                      setAiStatus('idle');
+                      setAiResult(null);
+                      setPhotoError('');
+                    }}
                     aria-label="Retake photo"
                   >
                     <Camera size={14} strokeWidth={2} /> Retake
@@ -482,7 +541,14 @@ export default function ReportIssue() {
                   {aiStatus === 'error' && (
                     <div className="ai-classify-card ai-classify-card--offline">
                       <Brain size={14} strokeWidth={2} aria-hidden="true" />
-                      <span>AI service offline — category will be detected from your description.</span>
+                      <span>{photoError}</span>
+                    </div>
+                  )}
+
+                  {aiStatus === 'rejected' && (
+                    <div className="ai-classify-card ai-classify-card--offline" role="alert">
+                      <AlertCircle size={14} strokeWidth={2} aria-hidden="true" />
+                      <span>{photoError}</span>
                     </div>
                   )}
                 </div>
@@ -514,14 +580,23 @@ export default function ReportIssue() {
                   </div>
                 )}
 
-                <p className="photo-hint-ok">
-                  <CheckCircle2 size={13} strokeWidth={2.5} aria-hidden="true" />
-                  Photo captured. Click Continue to describe the issue.
-                </p>
+                {aiStatus === 'done' && (
+                  <p className="photo-hint-ok">
+                    <CheckCircle2 size={13} strokeWidth={2.5} aria-hidden="true" />
+                    Issue-related photo verified. Click Continue to describe the issue.
+                  </p>
+                )}
               </div>
             ) : (
               /* ── Upload options ── */
               <div className="photo-upload-area">
+                {photoError && (
+                  <div className="ai-classify-card ai-classify-card--offline" role="alert">
+                    <AlertCircle size={14} strokeWidth={2} aria-hidden="true" />
+                    <span>{photoError}</span>
+                  </div>
+                )}
+
                 {/* PRIMARY: Camera button (most prominent) */}
                 <button
                   type="button"
@@ -605,6 +680,12 @@ export default function ReportIssue() {
                   );
                 })}
               </div>
+              {photoCategoryMismatch && (
+                <p className="photo-category-warning" role="alert">
+                  The photo was verified as {CATEGORIES.find((item) => item.id === aiResult.category)?.label.en}.
+                  Choose that category or retake the photo; unrelated evidence cannot be submitted.
+                </p>
+              )}
             </div>
 
             <div className="form-group">

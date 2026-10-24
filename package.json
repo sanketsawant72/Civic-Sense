@@ -11,6 +11,7 @@
     "dev:no-ai": "concurrently --names \"frontend,api\" --prefix-colors \"cyan,yellow\" \"npm run dev\" \"npm run dev:server\"",
     "dev:local": "npm run setup:local && npm run dev:no-ai",
     "setup:local": "node server/setup-local.js",
+    "setup:production": "node server/setup-production.js",
     "ai:install": "python -m pip install -r ai-service/requirements.txt",
     "build": "vite build",
     "preview": "vite preview",

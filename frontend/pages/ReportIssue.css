@@ -350,6 +350,17 @@
   margin: 0;
 }
 
+.photo-category-warning {
+  margin: 10px 0 0;
+  padding: 10px 12px;
+  border: 1px solid var(--danger);
+  border-radius: var(--radius);
+  color: var(--danger);
+  background: color-mix(in srgb, var(--danger) 8%, transparent);
+  font-size: 12.5px;
+  line-height: 1.5;
+}
+
 /* ── STEP 2 — Details ────────────────────────────────────────── */
 .form-label-opt {
   font-weight: 400;

@@ -7,13 +7,14 @@ import {
   Tag, FileText, Camera, MapPin, CheckCircle2,
   ChevronRight, ChevronLeft, Upload, X, AlertCircle,
   Lightbulb, Truck, Droplets, Trash2, HardHat, HelpCircle,
-  CheckCheck, Locate,
+  CheckCheck, Locate, Brain,
 } from 'lucide-react';
 import { useStore } from '../store/useStore';
 import { t, CATEGORIES, ASHTA } from '../data/constants';
 import { detectPriority, detectCategory } from '../utils/severity';
 import { readFileAsDataUrl } from '../utils/helpers';
 import { extractGpsFromFile } from '../utils/exif';
+import { classifyImage } from '../utils/api';
 import './ReportIssue.css';
 
 // Fix Leaflet default icon
@@ -36,10 +37,34 @@ const STEPS = [
   { id: 4, label: 'Location',  icon: MapPin },
   { id: 5, label: 'Review',    icon: CheckCircle2 },
 ];
+const MIN_IMAGE_CONFIDENCE = 0.55;
 
 function PinPicker({ position, setPosition }) {
   useMapEvents({ click(e) { setPosition([e.latlng.lat, e.latlng.lng]); } });
   return position ? <Marker position={position} /> : null;
+}
+
+function getDeviceLocation() {
+  return new Promise((resolve) => {
+    if (!navigator.geolocation) {
+      resolve(null);
+      return;
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      ({ coords }) => resolve({ lat: coords.latitude, lng: coords.longitude }),
+      () => resolve(null),
+      { enableHighAccuracy: true, maximumAge: 30000, timeout: 12000 }
+    );
+  });
+}
+
+async function getPhotoLocation(file) {
+  const photoLocation = await extractGpsFromFile(file);
+  if (photoLocation) return { ...photoLocation, source: 'photo' };
+
+  const deviceLocation = await getDeviceLocation();
+  return deviceLocation ? { ...deviceLocation, source: 'device' } : null;
 }
 
 export default function ReportIssue() {
@@ -56,6 +81,9 @@ export default function ReportIssue() {
   const [submitted, setSubmitted] = useState(false);
   const [newId, setNewId]         = useState('');
   const [dragOver, setDragOver]   = useState(false);
+    const [aiStatus, setAiStatus] = useState('idle');
+    const [aiMessage, setAiMessage] = useState('');
+    const [aiResult, setAiResult] = useState(null);
   // EXIF extraction state
   const [exifStatus, setExifStatus] = useState(null); // null | 'extracting' | 'found' | 'not_found'
 
@@ -80,23 +108,65 @@ export default function ReportIssue() {
 
   // ── photo handling ───────────────────────────────────────────
   async function handleFile(file) {
-    if (!file || !file.type.startsWith('image/')) return;
+    if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      setAiStatus('rejected');
+      setAiMessage('Choose an image file to continue.');
+      return;
+    }
 
-    // Read photo as data URL for preview
-    const url = await readFileAsDataUrl(file);
-    setPhoto(url);
+    setPhoto(null);
+    setAiResult(null);
+    setAiMessage('Checking whether this photo shows a civic issue…');
+    setAiStatus('checking');
     setExifStatus('extracting');
 
-    // Attempt GPS extraction from EXIF metadata
-    const gps = await extractGpsFromFile(file);
-    if (gps) {
-      setPosition([gps.lat, gps.lng]);
-      setExifStatus('found');
-    } else {
+    try {
+      const url = await readFileAsDataUrl(file);
+      const [classification, location] = await Promise.allSettled([
+        classifyImage(url, file.name),
+        getPhotoLocation(file),
+      ]);
+
+      const result = classification.status === 'fulfilled' ? classification.value : null;
+      const photoLocation = location.status === 'fulfilled' ? location.value : null;
+      if (photoLocation) {
+        setPosition([photoLocation.lat, photoLocation.lng]);
+        setExifStatus(photoLocation.source === 'photo' ? 'found' : 'device_found');
+      } else {
+        setExifStatus('not_found');
+      }
+
+      if (!result) {
+        setAiStatus('rejected');
+        setAiMessage(classification.reason?.message || 'Photo verification is unavailable. Please try again later or continue without a photo.');
+        return;
+      }
+
+      const predictedCategory = CATEGORIES.find((item) => item.id === result.category);
+      if (
+        !predictedCategory ||
+        result.category === 'other' ||
+        result.confidence < MIN_IMAGE_CONFIDENCE
+      ) {
+        setAiStatus('rejected');
+        setAiMessage('We could not verify a civic issue in this photo. Try a clearer photo focused on the reported problem.');
+        return;
+      }
+
+      setPhoto(url);
+      setCategory(result.category);
+      setAiResult(result);
+      setAiStatus('verified');
+    } catch (error) {
       setExifStatus('not_found');
+      setAiStatus('rejected');
+      setAiMessage(error?.message || 'Photo verification is unavailable. Please try again later or continue without a photo.');
     }
   }
-  async function handlePhotoChange(e) { await handleFile(e.target.files[0]); }
+  function handlePhotoChange(e) {
+    handleFile(e.target.files[0]);
+  }
   async function handleDrop(e) {
     e.preventDefault();
     setDragOver(false);
@@ -146,6 +216,7 @@ export default function ReportIssue() {
           <button className="btn btn-outline" onClick={() => {
             setSubmitted(false); setStep(1); setCategory('');
             setTitle(''); setDesc(''); setPhoto(null); setPosition(null);
+            setAiStatus('idle'); setAiMessage(''); setAiResult(null); setExifStatus(null);
           }}>
             Report Another Issue
           </button>
@@ -270,9 +341,19 @@ export default function ReportIssue() {
           <div className="step-content">
             <h2 className="step-title">Add photographic evidence</h2>
             <p className="step-desc">
-              A photo speeds up verification. If the photo has GPS metadata, the location
-              will be extracted automatically.
+              Photos are checked for a civic issue before they are attached. We use photo GPS when available, or ask your device for its current location.
             </p>
+
+            {aiStatus !== 'idle' && (
+              <div className={`photo-ai-status photo-ai-status--${aiStatus}`} role="status" aria-live="polite">
+                <Brain size={15} strokeWidth={2} aria-hidden="true" />
+                <span>
+                  {aiStatus === 'verified' && aiResult
+                    ? `Detected ${aiResult.category_label} (${Math.round(aiResult.confidence * 100)}% confidence). Category updated.`
+                    : aiMessage}
+                </span>
+              </div>
+            )}
 
             {photo ? (
               <div className="photo-preview-wrap">
@@ -282,7 +363,7 @@ export default function ReportIssue() {
                 {exifStatus === 'extracting' && (
                   <div className="exif-status exif-status--loading">
                     <Locate size={14} strokeWidth={2} aria-hidden="true" />
-                    Reading location from photo metadata…
+                    Checking photo GPS and device location…
                   </div>
                 )}
                 {exifStatus === 'found' && position && (
@@ -291,17 +372,23 @@ export default function ReportIssue() {
                     Location extracted from photo — {position[0].toFixed(5)}, {position[1].toFixed(5)}
                   </div>
                 )}
+                {exifStatus === 'device_found' && position && (
+                  <div className="exif-status exif-status--found">
+                    <MapPin size={14} strokeWidth={2.5} aria-hidden="true" />
+                    Current device location added — confirm the issue location on the map.
+                  </div>
+                )}
                 {exifStatus === 'not_found' && (
                   <div className="exif-status exif-status--none">
                     <MapPin size={14} strokeWidth={2} aria-hidden="true" />
-                    No GPS data found in photo — you can pin the location manually in the next step.
+                    Location unavailable. Allow browser location access or pin the issue manually on the map.
                   </div>
                 )}
 
                 <button
                   type="button"
                   className="photo-remove btn btn-outline btn-sm"
-                  onClick={() => { setPhoto(null); setExifStatus(null); }}
+                  onClick={() => { setPhoto(null); setExifStatus(null); setAiResult(null); setAiStatus('idle'); setAiMessage(''); }}
                 >
                   <X size={14} strokeWidth={2} aria-hidden="true" /> Remove photo
                 </button>
@@ -346,7 +433,7 @@ export default function ReportIssue() {
 
                 <p className="photo-hint">
                   <MapPin size={12} strokeWidth={2} aria-hidden="true" />
-                  Photos taken with GPS-enabled cameras will auto-fill the location.
+                  Image verification uses the configured AI service. You can continue without attaching a photo.
                 </p>
               </>
             )}
@@ -380,7 +467,7 @@ export default function ReportIssue() {
 
             <div className="map-wrap">
               <MapContainer
-                center={[ASHTA.lat, ASHTA.lng]}
+                center={position || [ASHTA.lat, ASHTA.lng]}
                 zoom={15}
                 className="report-map"
                 aria-label="Select issue location on map"
@@ -477,7 +564,7 @@ export default function ReportIssue() {
             {step < 5 ? (
               <>
                 {step === 3 && (
-                  <button type="button" className="btn btn-ghost" onClick={next}>
+                  <button type="button" className="btn btn-ghost" onClick={next} disabled={aiStatus === 'checking'}>
                     Skip this step
                   </button>
                 )}
@@ -490,7 +577,7 @@ export default function ReportIssue() {
                   type="button"
                   className="btn btn-primary"
                   onClick={next}
-                  disabled={!canNext[step]}
+                  disabled={!canNext[step] || (step === 3 && aiStatus === 'checking')}
                 >
                   Continue <ChevronRight size={15} strokeWidth={2.5} aria-hidden="true" />
                 </button>

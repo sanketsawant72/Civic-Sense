@@ -56,6 +56,12 @@ These fixed credentials are for local development only. Do not expose them or th
 
 Accounts and complaints are read from and written to the local MongoDB database; the frontend does not fall back to in-memory sample records. Running `npm run setup:local` creates or updates only the local admin and department accounts. It does not delete or seed complaint records. New complaints are saved to MongoDB.
 
+### Provision production admin and department accounts
+
+The fixed credentials above are local-only. To create missing accounts in Atlas, run `npm run setup:production` from PowerShell with `PRODUCTION_MONGO_URI` and the eight account passwords set in the current process environment. Use a unique password of at least 12 characters per account. The script hashes passwords, creates missing accounts only, and does not change existing accounts or complaints. Do not put production passwords in source files, commit them, or use `npm run setup:local` with Atlas.
+
+The account emails are `admin@civicsense.in`, `pwd@civicsense.in`, `sanitation@civicsense.in`, `drainage@civicsense.in`, `water@civicsense.in`, `electrical@civicsense.in`, `planning@civicsense.in`, and `general@civicsense.in`. Existing accounts are left unchanged; reset those separately through an authorized account-recovery process.
+
 ## Deploy the frontend to Vercel
 
 Import this GitHub repository into Vercel and configure the project:
