@@ -5,7 +5,7 @@ import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 import {
   Camera, FileText, CheckCircle2, ChevronRight, ChevronLeft,
-  Upload, X, MapPin, Locate, AlertCircle, CheckCheck,
+  Upload, X, MapPin, AlertCircle, CheckCheck,
   Zap, AlertTriangle, Shield, Truck, Trash2, Droplets,
   Lightbulb, HardHat, HelpCircle, Sparkles, Navigation, Brain,
 } from 'lucide-react';
@@ -56,6 +56,25 @@ const PHOTO_CONFIDENCE_THRESHOLD = 0.4;
 function PinPicker({ position, setPosition }) {
   useMapEvents({ click(e) { setPosition([e.latlng.lat, e.latlng.lng]); } });
   return position ? <Marker position={position} /> : null;
+}
+
+function getDeviceLocation() {
+  return new Promise((resolve) => {
+    if (!navigator.geolocation) {
+      resolve(null);
+      return;
+    }
+
+    try {
+      navigator.geolocation.getCurrentPosition(
+        ({ coords }) => resolve({ lat: coords.latitude, lng: coords.longitude }),
+        () => resolve(null),
+        { enableHighAccuracy: true, maximumAge: 30000, timeout: 12000 }
+      );
+    } catch {
+      resolve(null);
+    }
+  });
 }
 
 // Flies the map to `target` whenever it changes (used by GPS button + EXIF)
@@ -138,16 +157,39 @@ export default function ReportIssue() {
     }
 
     const requestId = ++classificationRequestRef.current;
+    const deviceLocationPromise = getDeviceLocation();
     setPhotoError('');
     setAiStatus('loading');
     setAiResult(null);
     setAiAccepted(false);
+    setPosition(null);
+    setLocSource('');
+    setExifStatus('extracting');
 
     try {
       const url = await readFileAsDataUrl(file);
       if (requestId !== classificationRequestRef.current) return;
       setPhoto(url);
-      setExifStatus(null);
+
+      const locationPromise = extractGpsFromFile(file)
+        .then(async (photoGps) => {
+          if (photoGps) return { ...photoGps, source: 'exif' };
+          const deviceGps = await deviceLocationPromise;
+          return deviceGps ? { ...deviceGps, source: 'gps' } : null;
+        })
+        .then((location) => {
+          if (requestId !== classificationRequestRef.current) return;
+          if (location) {
+            setPosition([location.lat, location.lng]);
+            setLocSource(location.source);
+            setExifStatus(location.source === 'exif' ? 'found' : 'device_found');
+          } else {
+            setExifStatus('not_found');
+          }
+        })
+        .catch(() => {
+          if (requestId === classificationRequestRef.current) setExifStatus('not_found');
+        });
 
       const result = await classifyImage(url, file.name);
       if (requestId !== classificationRequestRef.current) return;
@@ -182,17 +224,7 @@ export default function ReportIssue() {
         setCategory(result.category);
         setAiAccepted(true);
       }
-
-      setExifStatus('extracting');
-      const gps = await extractGpsFromFile(file);
-      if (requestId !== classificationRequestRef.current) return;
-      if (gps) {
-        setPosition([gps.lat, gps.lng]);
-        setExifStatus('found');
-        setLocSource('exif');
-      } else {
-        setExifStatus('not_found');
-      }
+      await locationPromise;
     } catch {
       if (requestId !== classificationRequestRef.current) return;
       setAiStatus('error');
@@ -359,8 +391,8 @@ export default function ReportIssue() {
           <div className="step-content">
             <h2 className="step-title">Take or upload a photo first</h2>
             <p className="step-desc">
-              Start by capturing a photo of the issue. If your camera has GPS enabled,
-              we will automatically extract the location — no manual pinning needed.
+              Start by capturing a photo of the issue. We’ll use its GPS metadata when
+              available, or request your current device location and place it on the map.
             </p>
 
             {photo ? (
@@ -392,8 +424,8 @@ export default function ReportIssue() {
                     <div className="exif-card exif-card--loading">
                       <div className="exif-spinner" aria-hidden="true" />
                       <div>
-                        <p className="exif-card__title">Reading GPS from photo…</p>
-                        <p className="exif-card__sub">Extracting location metadata</p>
+                        <p className="exif-card__title">Finding the photo location…</p>
+                        <p className="exif-card__sub">Checking photo GPS and requesting device location</p>
                       </div>
                     </div>
                   )}
@@ -411,13 +443,26 @@ export default function ReportIssue() {
                     </div>
                   )}
 
+                  {exifStatus === 'device_found' && position && (
+                    <div className="exif-card exif-card--success">
+                      <MapPin size={20} strokeWidth={2} className="exif-card__icon" aria-hidden="true" />
+                      <div>
+                        <p className="exif-card__title">Current device location added</p>
+                        <p className="exif-card__coords">
+                          {position[0].toFixed(5)}, {position[1].toFixed(5)}
+                        </p>
+                        <p className="exif-card__sub">Confirm that this is where the issue is on the map</p>
+                      </div>
+                    </div>
+                  )}
+
                   {exifStatus === 'not_found' && (
                     <div className="exif-card exif-card--warn">
                       <MapPin size={20} strokeWidth={2} className="exif-card__icon" aria-hidden="true" />
                       <div>
-                        <p className="exif-card__title">No GPS found in this photo</p>
+                        <p className="exif-card__title">Could not get a location</p>
                         <p className="exif-card__sub">
-                          You can pin the location manually on the map in the Review step.
+                          Allow location access in your browser, or pin the issue manually on the map in the Review step.
                         </p>
                       </div>
                     </div>
@@ -555,11 +600,11 @@ export default function ReportIssue() {
                 </div>
 
                 {/* Mini map preview if location found */}
-                {position && exifStatus === 'found' && (
+                {position && (exifStatus === 'found' || exifStatus === 'device_found') && (
                   <div className="mini-map-wrap">
                     <p className="mini-map-label">
                       <MapPin size={12} strokeWidth={2.5} aria-hidden="true" />
-                      Pinned location from photo
+                      {exifStatus === 'found' ? 'Pinned location from photo' : 'Current device location'}
                     </p>
                     <div className="mini-map">
                       <MapContainer
