@@ -1,6 +1,6 @@
 import { useNavigate } from 'react-router-dom';
 import {
-  Building2, User,
+  Building2, User, Layers,
   ArrowRight, MapPin, CheckCircle2, ClipboardList, Globe,
 } from 'lucide-react';
 import './Landing.css';
