@@ -67,18 +67,24 @@ function getDeviceLocation() {
   }
 
   return new Promise((resolve, reject) => {
-    navigator.geolocation.getCurrentPosition(
-      ({ coords }) => resolve({ lat: coords.latitude, lng: coords.longitude }),
-      (error) => {
+    const readPosition = (options) => new Promise((readResolve, readReject) => {
+      navigator.geolocation.getCurrentPosition(readResolve, readReject, options);
+    });
+
+    readPosition({ enableHighAccuracy: false, maximumAge: 120000, timeout: 20000 })
+      .catch((error) => {
+        if (error.code === 1) throw error;
+        return readPosition({ enableHighAccuracy: true, maximumAge: 30000, timeout: 20000 });
+      })
+      .then(({ coords }) => resolve({ lat: coords.latitude, lng: coords.longitude }))
+      .catch((error) => {
         const messages = {
           1: 'Location permission is blocked. Allow location access for this site in your browser settings, then retry.',
-          2: 'Your device could not determine its location. Turn on device location services and retry.',
-          3: 'Location lookup timed out. Check device location services and retry.',
+          2: 'Your device could not determine its location. Turn on device location services or choose the photo location on the map.',
+          3: 'GPS timed out. Keep location services on and retry, or choose the photo location on the map.',
         };
-        reject(new Error(messages[error.code] || 'Could not determine device location. Retry or pin the issue on the map.'));
-      },
-      { enableHighAccuracy: true, maximumAge: 30000, timeout: 20000 }
-    );
+        reject(new Error(messages[error.code] || 'Could not determine device location. Retry or choose the photo location on the map.'));
+      });
   });
 }
 
@@ -101,7 +107,7 @@ export default function ReportIssue() {
   const [step, setStep]       = useState(1);
   const [photo, setPhoto]     = useState(null);   // base64
   const [position, setPosition] = useState(null); // [lat, lng] from EXIF or map
-  const [exifStatus, setExifStatus] = useState(null); // null|'extracting'|'found'|'not_found'
+  const [exifStatus, setExifStatus] = useState(null);
   const [dragOver, setDragOver] = useState(false);
 
   const [category, setCategory] = useState(params.get('cat') || '');
@@ -112,7 +118,7 @@ export default function ReportIssue() {
   const [newId,     setNewId]     = useState('');
   const [submitting, setSubmitting] = useState(false);
 
-  // GPS detection state (separate from EXIF — this is the "Use My Location" button)
+  // GPS detection state (requested only after the user chooses "photo taken here")
   const [gpsLoading,  setGpsLoading]  = useState(false);
   const [gpsError,    setGpsError]    = useState('');
   const [locSource,   setLocSource]   = useState(''); // 'exif' | 'gps' | 'manual' | ''
@@ -141,11 +147,14 @@ export default function ReportIssue() {
   );
 
   // ── Step validation ────────────────────────────────────────────────────────
-  // Step 1: photo required (camera or upload). Position auto-filled if EXIF found.
+  // Step 1: photo and an explicit photo location are required.
   // Step 2: title + desc required.
   const canContinueWithPhoto = aiStatus === 'done' || aiStatus === 'error';
+  const locationReady = exifStatus === 'found'
+    || exifStatus === 'device_found'
+    || (exifStatus === 'map_select' && !!position);
   const canNext = {
-    1: !!photo && canContinueWithPhoto && !photoCategoryMismatch,
+    1: !!photo && canContinueWithPhoto && locationReady && !photoCategoryMismatch,
     2: title.trim().length >= 5 && desc.trim().length >= 10 && !photoCategoryMismatch,
     3: true,
   };
@@ -177,21 +186,19 @@ export default function ReportIssue() {
       setPhoto(url);
 
       const locationPromise = extractGpsFromFile(file)
-        .then(async (photoGps) => {
-          if (photoGps) return { ...photoGps, source: 'exif' };
-          const deviceGps = await getDeviceLocation();
-          return { ...deviceGps, source: 'gps' };
-        })
-        .then((location) => {
+        .then((photoGps) => {
           if (requestId !== classificationRequestRef.current) return;
-          setPosition([location.lat, location.lng]);
-          setLocSource(location.source);
-          setExifStatus(location.source === 'exif' ? 'found' : 'device_found');
-        })
-        .catch((error) => {
+          if (photoGps) {
+            setPosition([photoGps.lat, photoGps.lng]);
+            setLocSource('exif');
+            setExifStatus('found');
+          } else {
+            setExifStatus('choose_location');
+          }
+        }).catch((error) => {
           if (requestId === classificationRequestRef.current) {
-            setGpsError(error.message);
-            setExifStatus('not_found');
+            setGpsError(error?.message || 'Could not read photo GPS metadata.');
+            setExifStatus('choose_location');
           }
         });
 
@@ -249,18 +256,29 @@ export default function ReportIssue() {
 
   // ── Use browser GPS ────────────────────────────────────────────────────────
   async function useCurrentLocation() {
+    const requestId = classificationRequestRef.current;
     setGpsLoading(true);
     setGpsError('');
     try {
       const coords = await getDeviceLocation();
+      if (requestId !== classificationRequestRef.current) return;
       setPosition([coords.lat, coords.lng]);
       setLocSource('gps');
       setExifStatus('device_found');
+      setGpsError('');
     } catch (error) {
+      if (requestId !== classificationRequestRef.current) return;
       setGpsError(error.message);
+      setExifStatus('not_found');
     } finally {
-      setGpsLoading(false);
+      if (requestId === classificationRequestRef.current) setGpsLoading(false);
     }
+  }
+
+  function chooseMapLocation() {
+    setGpsError('');
+    setExifStatus('map_select');
+    setLocSource('manual');
   }
 
   // ── Submit ─────────────────────────────────────────────────────────────────
@@ -383,10 +401,8 @@ export default function ReportIssue() {
           <div className="step-content">
             <h2 className="step-title">Take or upload a photo first</h2>
             <p className="step-desc">
-              Start by capturing a photo of the issue. We’ll use its GPS metadata when
-              available, or request your current device location and place it on the map.
-              For an older uploaded photo without GPS metadata, device location is where
-              you are now, not necessarily where the photo was taken.
+              We’ll use GPS saved in the photo when available. Otherwise, choose whether
+              it was taken where you are now or pick its location on the map.
             </p>
 
             {photo ? (
@@ -403,6 +419,7 @@ export default function ReportIssue() {
                       setPosition(null);
                       setLocSource('');
                       setGpsError('');
+                      setGpsLoading(false);
                       setAiStatus('idle');
                       setAiResult(null);
                       setPhotoError('');
@@ -413,14 +430,14 @@ export default function ReportIssue() {
                   </button>
                 </div>
 
-                {/* Location extraction status */}
+                {/* Photo location */}
                 <div className="exif-result">
                   {exifStatus === 'extracting' && (
                     <div className="exif-card exif-card--loading">
                       <div className="exif-spinner" aria-hidden="true" />
                       <div>
-                        <p className="exif-card__title">Finding the photo location…</p>
-                        <p className="exif-card__sub">Checking photo GPS first; device location is used if it is missing</p>
+                        <p className="exif-card__title">Checking photo GPS metadata…</p>
+                        <p className="exif-card__sub">If the photo has no saved GPS, you can choose where it was taken</p>
                       </div>
                     </div>
                   )}
@@ -442,7 +459,7 @@ export default function ReportIssue() {
                     <div className="exif-card exif-card--success">
                       <MapPin size={20} strokeWidth={2} className="exif-card__icon" aria-hidden="true" />
                       <div>
-                        <p className="exif-card__title">Current device location added</p>
+                        <p className="exif-card__title">Using your current device location</p>
                         <p className="exif-card__coords">
                           {position[0].toFixed(5)}, {position[1].toFixed(5)}
                         </p>
@@ -451,11 +468,41 @@ export default function ReportIssue() {
                     </div>
                   )}
 
+                  {exifStatus === 'choose_location' && (
+                    <div className="exif-card exif-card--choice">
+                      <div>
+                        <p className="exif-card__title">Where was this photo taken?</p>
+                        <p className="exif-card__sub">
+                          This image has no GPS location saved in its metadata. Choose whether it was taken here or somewhere else.
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        className="use-location-btn"
+                        onClick={useCurrentLocation}
+                        disabled={gpsLoading}
+                      >
+                        {gpsLoading
+                          ? <><span className="gps-spinner" aria-hidden="true" /> Getting current location…</>
+                          : <><Navigation size={15} strokeWidth={2} aria-hidden="true" /> Photo taken here</>
+                        }
+                      </button>
+                      <button
+                        type="button"
+                        className="btn btn-outline"
+                        onClick={chooseMapLocation}
+                        disabled={gpsLoading}
+                      >
+                        <MapPin size={15} strokeWidth={2} aria-hidden="true" /> Photo taken somewhere else
+                      </button>
+                    </div>
+                  )}
+
                   {exifStatus === 'not_found' && (
                     <div className="exif-card exif-card--warn">
                       <MapPin size={20} strokeWidth={2} className="exif-card__icon" aria-hidden="true" />
                       <div>
-                        <p className="exif-card__title">Could not get a location</p>
+                        <p className="exif-card__title">Could not get your current location</p>
                         <p className="exif-card__sub">
                           {gpsError || 'Allow location access in your browser, then retry.'}
                         </p>
@@ -467,10 +514,52 @@ export default function ReportIssue() {
                         >
                           {gpsLoading
                             ? <><span className="gps-spinner" aria-hidden="true" /> Getting location…</>
-                            : <><Navigation size={15} strokeWidth={2} aria-hidden="true" /> Retry device location</>
+                            : <><Navigation size={15} strokeWidth={2} aria-hidden="true" /> Retry current location</>
                           }
                         </button>
+                        <button type="button" className="btn btn-outline" onClick={chooseMapLocation}>
+                          <MapPin size={15} strokeWidth={2} aria-hidden="true" /> Choose location on map
+                        </button>
                       </div>
+                    </div>
+                  )}
+
+                  {exifStatus === 'map_select' && (
+                    <div className="exif-card exif-card--choice">
+                      <div>
+                        <p className="exif-card__title">
+                          {position ? 'Photo location selected' : 'Tap the map where the photo was taken'}
+                        </p>
+                        <p className="exif-card__sub">
+                          {position
+                            ? `${position[0].toFixed(5)}, ${position[1].toFixed(5)} · Tap the map to adjust`
+                            : 'Zoom and move the map, then tap the exact issue location.'}
+                        </p>
+                      </div>
+                      <div className="review-map-wrap">
+                        <MapContainer
+                          center={position || [ASHTA.lat, ASHTA.lng]}
+                          zoom={position ? 17 : 13}
+                          className="review-map"
+                          aria-label="Choose where the photo was taken"
+                        >
+                          <TileLayer
+                            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a>'
+                          />
+                          <PinPicker
+                            position={position}
+                            setPosition={(coords) => {
+                              setPosition(coords);
+                              setLocSource('manual');
+                            }}
+                          />
+                          <MapController target={position} />
+                        </MapContainer>
+                      </div>
+                      <button type="button" className="btn btn-ghost btn-sm" onClick={() => setExifStatus('choose_location')}>
+                        <Navigation size={14} strokeWidth={2} aria-hidden="true" /> Use current location instead
+                      </button>
                     </div>
                   )}
                 </div>

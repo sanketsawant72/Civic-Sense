@@ -293,6 +293,17 @@
 .exif-card--success .exif-card__title { color: var(--success); }
 .exif-card--success .exif-card__sub   { color: var(--text); }
 
+.exif-card--choice {
+  flex-direction: column;
+  align-items: stretch;
+  background: var(--bg);
+  border-color: var(--border);
+  color: var(--text);
+}
+
+.exif-card--choice .review-map-wrap { width: 100%; }
+.exif-card--choice .review-map { min-height: 240px; }
+
 .exif-card--warn {
   background: var(--warning-bg);
   border-color: color-mix(in srgb, var(--warning) 25%, transparent);
