@@ -160,11 +160,11 @@ export default function ReportIssue() {
         result.category === 'other' ||
         result.confidence < PHOTO_CONFIDENCE_THRESHOLD
       ) {
-        setAiStatus(result.fallback ? 'error' : 'rejected');
+        setAiStatus('error');
         setPhotoError(
           result.fallback
             ? 'Photo verification is unavailable. You can continue, but select the issue category manually; this photo has not been verified.'
-            : 'We could not verify a civic issue in this photo. Upload a clear, close-up photo of the issue.'
+            : 'We could not verify a civic issue in this photo. You can continue, but select the issue category manually; a clearer close-up may help verification.'
         );
         return;
       }
