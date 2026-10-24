@@ -119,8 +119,9 @@ export default function ReportIssue() {
   // ── Step validation ────────────────────────────────────────────────────────
   // Step 1: photo required (camera or upload). Position auto-filled if EXIF found.
   // Step 2: title + desc required.
+  const canContinueWithPhoto = aiStatus === 'done' || aiStatus === 'error';
   const canNext = {
-    1: !!photo && aiStatus === 'done' && !photoCategoryMismatch,
+    1: !!photo && canContinueWithPhoto && !photoCategoryMismatch,
     2: title.trim().length >= 5 && desc.trim().length >= 10 && !photoCategoryMismatch,
     3: true,
   };
@@ -162,7 +163,7 @@ export default function ReportIssue() {
         setAiStatus(result.fallback ? 'error' : 'rejected');
         setPhotoError(
           result.fallback
-            ? 'Photo verification is unavailable. Please try again when the verifier is online.'
+            ? 'Photo verification is unavailable. You can continue, but select the issue category manually; this photo has not been verified.'
             : 'We could not verify a civic issue in this photo. Upload a clear, close-up photo of the issue.'
         );
         return;
@@ -195,7 +196,7 @@ export default function ReportIssue() {
     } catch {
       if (requestId !== classificationRequestRef.current) return;
       setAiStatus('error');
-      setPhotoError('Photo verification failed. Please try again.');
+      setPhotoError('Photo verification is unavailable. You can continue, but select the issue category manually; this photo has not been verified.');
     }
   }
 

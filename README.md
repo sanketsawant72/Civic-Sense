@@ -34,6 +34,8 @@ npm run dev:no-ai
 
 Open **http://localhost:5173**. To run the optional AI image service too, install Python 3.10+ and run `npm run dev:full`; its first start installs the packages in `ai-service\requirements.txt`. Run `npm run setup:local` first if you have not already created local accounts.
 
+If the optional AI service is offline, reports can still be submitted with a photo. The photo is not marked as verified, and the reporter must choose the issue category manually.
+
 ## Local login accounts
 
 All seven department accounts use the local development password `Dept@1234`:
@@ -75,3 +77,7 @@ Import this GitHub repository into Vercel and configure the project:
 Replace the example API URL with your Render service URL, without a trailing slash or `/api`. The root `vercel.json` rewrites frontend routes to `index.html` so direct links and browser refreshes work.
 
 After deploying, set the Render API's `CLIENT_ORIGIN` environment variable to the exact Vercel site origin (for example, `https://<your-project>.vercel.app`) and redeploy the API. Redeploy the Vercel site whenever you change `VITE_API_BASE`.
+
+### Enable production photo verification
+
+The Python AI verifier is a separate service; deploying the Vercel frontend and Express API does not deploy it. To enable verification, create a Python web service from this repository with root directory `ai-service`, build command `pip install -r requirements.txt`, and start command `uvicorn main:app --host 0.0.0.0 --port $PORT`. After it deploys, set the Express API's `AI_SERVICE_URL` environment variable to the verifier's public service URL (without `/health` or a trailing slash), then redeploy the API. Check `<your-api-url>/api/ai/health`; it should return `"ok": true`. Until this is configured, reports can still be submitted with an unverified photo and a manually selected category.
