@@ -1,6 +1,6 @@
 import { useNavigate } from 'react-router-dom';
 import {
-  Building2, User, ShieldCheck, Layers,
+  Building2, User,
   ArrowRight, MapPin, CheckCircle2, ClipboardList, Globe,
 } from 'lucide-react';
 import './Landing.css';
@@ -8,7 +8,7 @@ import './Landing.css';
 const ROLES = [
   {
     key:     'citizen',
-    to:      '/login?role=citizen',
+    to:      '/login',
     icon:    User,
     color:   '#23845B',
     bg:      '#EDFAF4',
@@ -20,39 +20,6 @@ const ROLES = [
       'Report potholes, garbage, water issues & more',
       'Upload photo evidence from camera or gallery',
       'Track real-time status updates with complaint ID',
-    ],
-  },
-  {
-    key:      'admin',
-    to:       '/login?role=admin',
-    icon:     ShieldCheck,
-    color:    '#173B63',
-    bg:       '#EEF4FB',
-    border:   '#B0C8E8',
-    title:    'Admin',
-    sub:      'Manage All Complaints',
-    desc:     'Full system access — view all complaints, assign to departments, monitor resolution rates and send notifications.',
-    bullets:  [
-      'Assign complaints to the right department',
-      'Monitor resolution rates & SLA compliance',
-      'Send status notifications to citizens',
-    ],
-    featured: true,
-  },
-  {
-    key:    'department',
-    to:     '/login?role=department',
-    icon:   Layers,
-    color:  '#167D83',
-    bg:     '#E8F6F7',
-    border: '#9FD3D6',
-    title:  'Department',
-    sub:    'Manage Your Queue',
-    desc:   'Department officers see only their assigned category — water, roads, electrical, sanitation and more.',
-    bullets: [
-      'View only your department issues',
-      'Update complaint status & add notes',
-      'Alert admin on issue resolution',
     ],
   },
 ];
@@ -92,7 +59,7 @@ export default function Landing() {
       </section>
 
       {/* ── Role cards ── */}
-      <section className="landing-cards" aria-label="Select your role to sign in">
+      <section className="landing-cards" aria-label="Citizen sign in">
         {ROLES.map(({ key, to, icon: Icon, color, bg, border, title, sub, desc, bullets, featured }) => (
           <div
             key={key}

@@ -89,7 +89,8 @@
 /* ── Role cards ──────────────────────────────────────────────── */
 .landing-cards {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: minmax(280px, 480px);
+  justify-content: center;
   gap: 18px;
   width: 100%;
   max-width: 1080px;

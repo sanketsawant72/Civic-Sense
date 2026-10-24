@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate, useSearchParams, Link } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import {
   Building2, Mail, Lock, Eye, EyeOff, AlertCircle,
   LogIn, User, ShieldCheck, Layers, ArrowLeft,
@@ -36,16 +36,12 @@ const ROLE_META = {
   },
 };
 
-export default function Login() {
+export default function Login({ role = 'citizen' }) {
   const navigate       = useNavigate();
-  const [params]       = useSearchParams();
   const setAuth        = useAuthStore((s) => s.setAuth);
   const loadComplaints = useStore((s) => s.loadComplaints);
 
-  const initialRole = params.get('role') || 'citizen';
-  const [selectedRole, setSelectedRole] = useState(
-    ['citizen', 'admin', 'department'].includes(initialRole) ? initialRole : 'citizen'
-  );
+  const selectedRole = ROLE_META[role] ? role : 'citizen';
 
   const [email,    setEmail]    = useState('');
   const [password, setPassword] = useState('');
@@ -56,13 +52,6 @@ export default function Login() {
   const meta = ROLE_META[selectedRole];
   const Icon = meta.icon;
 
-  function switchRole(role) {
-    setSelectedRole(role);
-    setError('');
-    setEmail('');
-    setPassword('');
-  }
-
   async function handleSubmit(e) {
     e.preventDefault();
     if (!email || !password) { setError('Please enter your email and password.'); return; }
@@ -72,8 +61,11 @@ export default function Login() {
     try {
       const { token, user } = await loginApi(email.trim(), password);
 
-      // ── Auto-correct: if user logged in via wrong tab, just route correctly ──
-      // We do NOT block the login — we simply redirect to the right dashboard.
+      if (user.role !== selectedRole) {
+        const portalName = ROLE_META[selectedRole].label.replace(' Portal', '');
+        throw new Error(`This account cannot sign in through the ${portalName} portal.`);
+      }
+
       setAuth({ token, user });
 
       // Load complaints scoped to the actual role
@@ -103,26 +95,6 @@ export default function Login() {
         <div className="auth-brand">
           <Building2 size={26} strokeWidth={1.8} className="auth-brand-icon" aria-hidden="true" />
           <span className="auth-brand-name">CivicSense</span>
-        </div>
-
-        {/* ── Role tabs ── */}
-        <div className="role-tabs" role="tablist" aria-label="Select portal">
-          {Object.entries(ROLE_META).map(([key, m]) => {
-            const TabIcon = m.icon;
-            return (
-              <button
-                key={key}
-                role="tab"
-                aria-selected={selectedRole === key}
-                className={'role-tab' + (selectedRole === key ? ' role-tab--active' : '')}
-                style={{ '--tab-color': m.color }}
-                onClick={() => switchRole(key)}
-              >
-                <TabIcon size={13} strokeWidth={2} aria-hidden="true" />
-                {key === 'department' ? 'Dept' : key.charAt(0).toUpperCase() + key.slice(1)}
-              </button>
-            );
-          })}
         </div>
 
         {/* ── Portal heading ── */}

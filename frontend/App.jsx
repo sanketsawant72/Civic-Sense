@@ -86,7 +86,9 @@ export default function App() {
 
         {/* ── Public (no AppShell) ── */}
         <Route path="/landing"  element={<AuthRedirect><Landing  /></AuthRedirect>} />
-        <Route path="/login"    element={<AuthRedirect><Login    /></AuthRedirect>} />
+        <Route path="/login"    element={<AuthRedirect><Login role="citizen" /></AuthRedirect>} />
+        <Route path="/admin/login" element={<AuthRedirect><Login role="admin" /></AuthRedirect>} />
+        <Route path="/department/login" element={<AuthRedirect><Login role="department" /></AuthRedirect>} />
         <Route path="/register" element={<AuthRedirect><Register /></AuthRedirect>} />
 
         {/* ── Authenticated routes wrapped in AppShell ── */}
