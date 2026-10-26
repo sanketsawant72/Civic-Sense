@@ -179,21 +179,24 @@ The default detection confidence is 0.4; change it with `--confidence`.
 
 ### 5. Connect the trained model to the API
 
-For local testing, point `CIVIC_MODEL_PATH` at the trained `best.pt` and restart
-the Python service:
+The repository includes the current experimental weights at
+`model/civic-best.pt`; the service loads them by default when present. To use a
+different trained model, set `CIVIC_MODEL_PATH` to its file and restart the
+Python service:
 
 ```powershell
 $env:CIVIC_MODEL_PATH = (Resolve-Path "runs/civic/yolov8n/weights/best.pt").Path
 python -m uvicorn main:app --host 0.0.0.0 --port 8000
 ```
 
-The API accepts predictions only as civic verification when a model path is
-configured. In production, provide the weights to the Python Render service using
-a persistent disk or an authenticated model-artifact download during deployment,
-then set `CIVIC_MODEL_PATH` to that file and redeploy. Do not store large weights
-or private datasets in the source repository. Confirm `/health` reports
+The bundled weights are experimental and trained on only 175 images, with 25
+held-out test images. Pothole mAP50-95 was 0.259 on that small test set; do not
+interpret the health check as a guarantee of real-world accuracy. These weights
+cover pothole, garbage, drainage, streetlight, and other only. Water and
+construction are not covered. The model is included in the service source so
+Render can load it during deployment. Confirm `/health` reports
 `civic_model_ready: true`, then verify through the Express API
-`/api/ai/health`.
+`/api/ai/health`. Keep private datasets out of the source repository.
 
 The API accepts configured weights whose class names all map to supported
 CivicSense categories; a model may contain only the classes it was trained to

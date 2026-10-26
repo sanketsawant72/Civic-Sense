@@ -18,6 +18,9 @@ ai-service/civic-issues-v6/
 ai-service/dataset.yaml
 ai-service/runs/
 ai-service/model/
+!ai-service/model/
+ai-service/model/*
+!ai-service/model/civic-best.pt
 ai-service/*.pt
 
 # Editor directories and files

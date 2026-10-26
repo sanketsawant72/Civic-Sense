@@ -101,16 +101,17 @@ CATEGORY_LABELS = {
 }
 
 # ── Model loading ─────────────────────────────────────────────────────────────
-DEFAULT_MODEL_PATH = Path(__file__).parent / "model" / "yolov8n.pt"
+DEFAULT_MODEL_PATH = Path(__file__).parent / "model" / "civic-best.pt"
 CONFIGURED_MODEL_PATH = os.getenv("CIVIC_MODEL_PATH", "").strip()
 MODEL_PATH = Path(CONFIGURED_MODEL_PATH).expanduser() if CONFIGURED_MODEL_PATH else DEFAULT_MODEL_PATH
 
 if CONFIGURED_MODEL_PATH and not MODEL_PATH.is_file():
     raise RuntimeError(f"CIVIC_MODEL_PATH does not point to a model file: {MODEL_PATH}")
 
-MODEL_SOURCE = str(MODEL_PATH) if MODEL_PATH.is_file() else "yolov8n.pt (general-purpose COCO baseline)"
+HAS_CIVIC_MODEL = MODEL_PATH.is_file()
+MODEL_SOURCE = str(MODEL_PATH) if HAS_CIVIC_MODEL else "yolov8n.pt (general-purpose COCO baseline)"
 log.info("Loading YOLO model: %s", MODEL_SOURCE)
-model = YOLO(str(MODEL_PATH) if MODEL_PATH.is_file() else "yolov8n.pt")
+model = YOLO(str(MODEL_PATH) if HAS_CIVIC_MODEL else "yolov8n.pt")
 
 MODEL_CLASS_NAMES = {
     str(name).strip().lower()
@@ -127,8 +128,8 @@ if CONFIGURED_MODEL_PATH and (not MODEL_CLASS_NAMES or UNSUPPORTED_MODEL_CLASSES
         f"and all class names must map to CivicSense categories. Unsupported: {unsupported_labels or 'none'}"
     )
 
-CIVIC_MODEL_READY = bool(CONFIGURED_MODEL_PATH)
-MODEL_NAME = MODEL_PATH.name if CIVIC_MODEL_READY else "yolov8n.pt (COCO baseline)"
+CIVIC_MODEL_READY = HAS_CIVIC_MODEL
+MODEL_NAME = MODEL_PATH.name if HAS_CIVIC_MODEL else "yolov8n.pt (COCO baseline)"
 MODEL_WARNING = None if CIVIC_MODEL_READY else (
     "The general-purpose YOLOv8 COCO model is loaded. It is not trained to recognize "
     "civic issues; configure CIVIC_MODEL_PATH with civic-trained weights for verification."
