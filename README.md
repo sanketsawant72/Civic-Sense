@@ -106,3 +106,15 @@ In the **Express API** Render service (not Vercel and not the Python service), a
 Being reachable does not by itself mean photo classification is accurate. The default YOLOv8 COCO weights are general-purpose and are not trained to identify civic problems. The API health response reports `civicModelReady: false` when those weights are in use. For civic issue verification, train or obtain model weights for the supported civic labels, make them available to the Python service, set its `CIVIC_MODEL_PATH` to the model file, and redeploy it. Until a civic-trained model is configured, the app will state that the photo is unverified; it will not mark generic model output as verified.
 
 If photo classification fails, redeploy the Express API and retry; the report form now shows the upstream HTTP status and a next step. For HTTP 500, inspect the Python service logs for the inference error. For HTTP 502–504, check whether the Python service is starting, sleeping, or failing deployment. For HTTP 413, try a smaller image. A healthy `/api/ai/health` with `civicModelReady: false` means the service is reachable but civic-trained weights are not configured.
+
+If the Python service URL itself returns HTTP 502 (especially with the
+`x-render-routing: no-deploy` response header), Render has no live deployment to
+serve the request. In the Render dashboard, open the Python AI service, check
+Events and Logs, and use **Manual Deploy → Deploy latest commit**. Confirm its
+root directory is `ai-service`, build command is `pip install -r requirements.txt`,
+and start command is `uvicorn main:app --host 0.0.0.0 --port $PORT`. Wait until
+Render marks the deployment **Live**, then verify `/health` returns JSON before
+retrying photo classification. If the service crashes during inference, inspect
+its logs and available memory; the AI service limits CPU threads and inference
+image size to reduce resource use, but its configured model weights must still
+fit the selected Render instance.

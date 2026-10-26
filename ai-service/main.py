@@ -19,6 +19,7 @@ from pathlib import Path
 from typing import Optional
 
 import numpy as np
+import torch
 from PIL import Image
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -28,6 +29,10 @@ from ultralytics import YOLO
 # ── Logging ───────────────────────────────────────────────────────────────────
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger("civicsense-ai")
+
+# Keep CPU inference within the memory and thread limits of small web instances.
+torch.set_num_threads(1)
+torch.set_num_interop_threads(1)
 
 # ── App ───────────────────────────────────────────────────────────────────────
 app = FastAPI(
@@ -237,8 +242,11 @@ def classify(req: ClassifyRequest):
     try:
         results = model.predict(
             source=np.array(img),
+            imgsz=416,
             conf=0.25,          # minimum confidence threshold
             iou=0.45,
+            max_det=10,
+            device="cpu",
             verbose=False,
         )
     except Exception as exc:
