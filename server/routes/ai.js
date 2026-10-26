@@ -116,14 +116,14 @@ router.post('/classify', protect, asyncHandler(async (req, res) => {
       method:  'POST',
       headers: { 'Content-Type': 'application/json' },
       body:    JSON.stringify({ image, filename: filename || 'photo.jpg' }),
-      signal:  AbortSignal.timeout(30_000), // 30 s — YOLO can be slow first run
+      signal:  AbortSignal.timeout(90_000), // Allow cold-starting AI instances time to wake and load YOLO
     });
   } catch (err) {
     const timedOut = err.name === 'TimeoutError' || err.name === 'AbortError';
     return res.status(503).json({
       ...unavailableResponse(
         timedOut
-          ? 'AI classification timed out after 30 seconds. Check the AI service logs and model startup.'
+          ? 'AI classification timed out after 90 seconds. Check the AI service logs, available memory, and model startup.'
           : 'Could not connect to the AI service. Check the API server AI_SERVICE_URL and AI service deployment.',
         timedOut ? 'AI_SERVICE_TIMEOUT' : 'AI_SERVICE_UNREACHABLE'
       ),
