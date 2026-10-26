@@ -1,0 +1,12 @@
+path: C:/path/to/civic-dataset
+train: images/train
+val: images/val
+test: images/test
+
+names:
+  0: pothole
+  1: garbage
+  2: drainage
+  3: water
+  4: streetlight
+  5: construction

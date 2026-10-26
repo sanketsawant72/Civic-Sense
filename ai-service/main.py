@@ -96,26 +96,37 @@ CATEGORY_LABELS = {
 
 # ── Model loading ─────────────────────────────────────────────────────────────
 DEFAULT_MODEL_PATH = Path(__file__).parent / "model" / "yolov8n.pt"
-CONFIGURED_MODEL_PATH = os.getenv("CIVIC_MODEL_PATH")
+CONFIGURED_MODEL_PATH = os.getenv("CIVIC_MODEL_PATH", "").strip()
 MODEL_PATH = Path(CONFIGURED_MODEL_PATH).expanduser() if CONFIGURED_MODEL_PATH else DEFAULT_MODEL_PATH
 
 if CONFIGURED_MODEL_PATH and not MODEL_PATH.is_file():
     raise RuntimeError(f"CIVIC_MODEL_PATH does not point to a model file: {MODEL_PATH}")
 
-CIVIC_MODEL_READY = bool(CONFIGURED_MODEL_PATH)
 MODEL_SOURCE = str(MODEL_PATH) if MODEL_PATH.is_file() else "yolov8n.pt (general-purpose COCO baseline)"
-MODEL_NAME = (
-    MODEL_PATH.name
-    if CIVIC_MODEL_READY
-    else f"{MODEL_PATH.name if MODEL_PATH.is_file() else 'yolov8n.pt'} (COCO baseline)"
-)
+log.info("Loading YOLO model: %s", MODEL_SOURCE)
+model = YOLO(str(MODEL_PATH) if MODEL_PATH.is_file() else "yolov8n.pt")
+
+MODEL_CLASS_NAMES = {
+    str(name).strip().lower()
+    for name in model.names.values()
+} if isinstance(model.names, dict) else {
+    str(name).strip().lower()
+    for name in model.names
+}
+UNSUPPORTED_MODEL_CLASSES = MODEL_CLASS_NAMES - set(LABEL_TO_CATEGORY)
+if CONFIGURED_MODEL_PATH and (not MODEL_CLASS_NAMES or UNSUPPORTED_MODEL_CLASSES):
+    unsupported_labels = ", ".join(sorted(UNSUPPORTED_MODEL_CLASSES))
+    raise RuntimeError(
+        "Configured model must contain at least one supported civic class, "
+        f"and all class names must map to CivicSense categories. Unsupported: {unsupported_labels or 'none'}"
+    )
+
+CIVIC_MODEL_READY = bool(CONFIGURED_MODEL_PATH)
+MODEL_NAME = MODEL_PATH.name if CIVIC_MODEL_READY else "yolov8n.pt (COCO baseline)"
 MODEL_WARNING = None if CIVIC_MODEL_READY else (
     "The general-purpose YOLOv8 COCO model is loaded. It is not trained to recognize "
     "civic issues; configure CIVIC_MODEL_PATH with civic-trained weights for verification."
 )
-
-log.info("Loading YOLO model: %s", MODEL_SOURCE)
-model = YOLO(str(MODEL_PATH) if MODEL_PATH.is_file() else "yolov8n.pt")
 log.info("YOLO model loaded; civic model ready: %s", CIVIC_MODEL_READY)
 
 
@@ -168,7 +179,7 @@ def pick_best_detection(results) -> tuple[str, str, float, list]:
     for result in results:
         boxes  = result.boxes
         names  = result.names
-        for i, box in enumerate(boxes):
+        for box in boxes:
             label = names[int(box.cls[0])]
             conf  = float(box.conf[0])
             xyxy  = box.xyxy[0].tolist()   # absolute pixels

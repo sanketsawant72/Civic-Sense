@@ -13,6 +13,11 @@ dist-ssr
 *.local
 __pycache__/
 *.py[cod]
+ai-service/civic-dataset/
+ai-service/dataset.yaml
+ai-service/runs/
+ai-service/model/
+ai-service/*.pt
 
 # Editor directories and files
 .vscode/*
