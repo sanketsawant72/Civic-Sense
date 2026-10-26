@@ -84,6 +84,17 @@ Replace the example API URL with your Render service URL, without a trailing sla
 
 After deploying, set the Render API's `CLIENT_ORIGIN` environment variable to the exact Vercel site origin (for example, `https://<your-project>.vercel.app`) and redeploy the API. Redeploy the Vercel site whenever you change `VITE_API_BASE`.
 
+If registration or sign-in shows **Failed to fetch**, open the Vercel project's
+environment variables and set `VITE_API_BASE` to the Render **Express API**
+service's public root URL (for example, `https://<your-api>.onrender.com`), not
+the Python AI service URL and not a URL ending in `/api`. Then redeploy the
+frontend. In Render, set the Express API's `CLIENT_ORIGIN` to the exact browser
+origin serving the frontend, such as `https://<your-project>.vercel.app` (no path
+or trailing slash), then redeploy the API. Check the API root URL returns
+`{"service":"CivicSense API","ok":true,...}` and that `<your-api-url>/api/health`
+reports `db: "connected"`. If the browser still blocks the request, check its
+developer-console Network entry for the API request and any CORS error.
+
 Frontend pages are loaded on demand so the initial download does not include maps, admin charts, and other screens that are not being viewed. The app also checks API health and loads the signed-in user's complaints concurrently. If the Render API is on a plan that sleeps while idle, its first request can still be delayed while the service starts; an always-on service is needed to avoid that cold-start delay.
 
 ### Enable production photo verification

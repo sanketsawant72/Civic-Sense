@@ -6,6 +6,7 @@
 import { useAuthStore } from '../store/useAuthStore';
 
 const BASE = (import.meta.env.VITE_API_BASE || '') + '/api';
+const API_ORIGIN = import.meta.env.VITE_API_BASE || window.location.origin;
 
 // ── Core fetch wrapper ────────────────────────────────────────────────────────
 async function request(path, options = {}) {
@@ -15,7 +16,21 @@ async function request(path, options = {}) {
   const headers = { 'Content-Type': 'application/json', ...options.headers };
   if (token) headers['Authorization'] = `Bearer ${token}`;
 
-  const res = await fetch(`${BASE}${path}`, { ...options, headers });
+  let res;
+  try {
+    res = await fetch(`${BASE}${path}`, { ...options, headers });
+  } catch (error) {
+    if (error instanceof TypeError) {
+      const localHint = import.meta.env.DEV
+        ? 'Make sure the Express API is running on port 3001.'
+        : 'Check the Vercel VITE_API_BASE value and the API CLIENT_ORIGIN CORS setting.';
+      throw new Error(
+        `Cannot connect to the CivicSense API at ${API_ORIGIN}. `
+        + `The API may be unavailable or the browser may be blocking the request. ${localHint}`
+      );
+    }
+    throw error;
+  }
 
   // 204 No Content
   if (res.status === 204) return null;
