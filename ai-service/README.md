@@ -195,7 +195,9 @@ or private datasets in the source repository. Confirm `/health` reports
 `civic_model_ready: true`, then verify through the Express API
 `/api/ai/health`.
 
-The API requires configured weights to contain all six exact class names above.
-This prevents incompatible model labels from being silently reported as CivicSense
-categories. Passing that check only confirms label compatibility; review the
-held-out test metrics and real-world samples before relying on predictions.
+The API accepts configured weights whose class names all map to supported
+CivicSense categories; a model may contain only the classes it was trained to
+recognize. Unsupported class names prevent startup so predictions cannot be
+silently reported as unrelated CivicSense categories. Passing this check confirms
+label compatibility only; review held-out test metrics and real-world samples
+before relying on predictions.
