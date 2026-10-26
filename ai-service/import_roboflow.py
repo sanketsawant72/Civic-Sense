@@ -13,14 +13,43 @@ from typing import Any
 import yaml
 
 
-SUPPORTED_CLASSES = {
-    "pothole", "garbage", "drainage", "water", "streetlight", "construction",
+CLASS_ALIASES = {
+    "pothole": "pothole",
+    "potholes": "pothole",
+    "road damage": "pothole",
+    "road crack": "pothole",
+    "garbage": "garbage",
+    "trash": "garbage",
+    "waste": "garbage",
+    "illegal dumping": "garbage",
+    "overflowing bin": "garbage",
+    "drainage": "drainage",
+    "sewage": "drainage",
+    "blocked drain": "drainage",
+    "waterlogging": "drainage",
+    "flooding": "drainage",
+    "water": "water",
+    "water leak": "water",
+    "leakage": "water",
+    "streetlight": "streetlight",
+    "street light": "streetlight",
+    "broken street lights": "streetlight",
+    "broken_street_lights": "streetlight",
+    "electric pole": "streetlight",
+    "fallen tree": "other",
+    "fallen_tree": "other",
+    "construction": "construction",
+    "illegal construction": "construction",
+    "encroachment": "construction",
 }
+CANONICAL_CLASS_ORDER = (
+    "pothole", "garbage", "drainage", "water", "streetlight", "construction", "other",
+)
 IMAGE_SUFFIXES = {".bmp", ".jpeg", ".jpg", ".png", ".tif", ".tiff", ".webp"}
 SPLIT_NAMES = {"train": "train", "valid": "val", "val": "val", "test": "test"}
 
 
-def parse_class_names(value: Any) -> list[str]:
+def parse_class_names(value: Any) -> tuple[list[str], list[int]]:
     if isinstance(value, list):
         names = value
     elif isinstance(value, dict):
@@ -34,13 +63,15 @@ def parse_class_names(value: Any) -> list[str]:
     else:
         raise ValueError("data.yaml must define class names in 'names'.")
 
-    normalized = [str(name).strip().lower() for name in names]
-    if not normalized or any(name not in SUPPORTED_CLASSES for name in normalized):
-        raise ValueError(
-            "Dataset classes must be supported CivicSense labels: "
-            + ", ".join(sorted(SUPPORTED_CLASSES))
-        )
-    return normalized
+    source_names = [str(name).strip().lower() for name in names]
+    unsupported = [name for name in source_names if name not in CLASS_ALIASES]
+    if not source_names or unsupported:
+        raise ValueError(f"Unsupported dataset class names: {', '.join(unsupported) or 'none'}")
+
+    normalized = [CLASS_ALIASES[name] for name in source_names]
+    canonical_names = [name for name in CANONICAL_CLASS_ORDER if name in normalized]
+    class_id_map = [canonical_names.index(name) for name in normalized]
+    return canonical_names, class_id_map
 
 
 def safe_archive_path(name: str) -> PurePosixPath:
@@ -52,13 +83,13 @@ def safe_archive_path(name: str) -> PurePosixPath:
     return path
 
 
-def polygon_to_box(fields: list[str], class_names: list[str], filename: str, line_number: int) -> str:
+def polygon_to_box(fields: list[str], class_id_map: list[int], filename: str, line_number: int) -> str:
     try:
         class_id = int(fields[0])
         coordinates = [float(value) for value in fields[1:]]
     except ValueError as error:
         raise ValueError(f"{filename}:{line_number}: annotation values must be numeric") from error
-    if class_id < 0 or class_id >= len(class_names):
+    if class_id < 0 or class_id >= len(class_id_map):
         raise ValueError(f"{filename}:{line_number}: class ID is outside the data.yaml names")
     if not all(math.isfinite(value) and 0 <= value <= 1 for value in coordinates):
         raise ValueError(f"{filename}:{line_number}: annotation values must be between 0 and 1")
@@ -80,11 +111,11 @@ def polygon_to_box(fields: list[str], class_names: list[str], filename: str, lin
     if width <= 0 or height <= 0:
         raise ValueError(f"{filename}:{line_number}: annotation must have non-zero width and height")
     if (
-        x_center - width / 2 < 0 or x_center + width / 2 > 1
-        or y_center - height / 2 < 0 or y_center + height / 2 > 1
+        x_center - width / 2 < -1e-9 or x_center + width / 2 > 1 + 1e-9
+        or y_center - height / 2 < -1e-9 or y_center + height / 2 > 1 + 1e-9
     ):
         raise ValueError(f"{filename}:{line_number}: bounding box extends outside the image")
-    return f"{class_id} {x_center:.8f} {y_center:.8f} {width:.8f} {height:.8f}"
+    return f"{class_id_map[class_id]} {x_center:.8f} {y_center:.8f} {width:.8f} {height:.8f}"
 
 
 def import_dataset(zip_path: Path, output_path: Path, overwrite: bool = False) -> dict[str, Any]:
@@ -112,7 +143,7 @@ def import_dataset(zip_path: Path, output_path: Path, overwrite: bool = False) -
             source_config = yaml.safe_load(data_file)
         if not isinstance(source_config, dict):
             raise ValueError("data.yaml must contain a YAML mapping.")
-        class_names = parse_class_names(source_config.get("names"))
+        class_names, class_id_map = parse_class_names(source_config.get("names"))
 
         output_path.mkdir(parents=True)
         split_counts = {
@@ -149,7 +180,7 @@ def import_dataset(zip_path: Path, output_path: Path, overwrite: bool = False) -
                 fields = line.split()
                 if not fields:
                     continue
-                output_lines.append(polygon_to_box(fields, class_names, entry.filename, line_number))
+                output_lines.append(polygon_to_box(fields, class_id_map, entry.filename, line_number))
             destination = output_path / "labels" / normalized_split / relative.with_suffix(".txt")
             destination.parent.mkdir(parents=True, exist_ok=True)
             destination.write_text(

@@ -21,6 +21,7 @@ CIVIC_CLASSES = (
     "water",
     "streetlight",
     "construction",
+    "other",
 )
 IMAGE_SUFFIXES = {".bmp", ".jpeg", ".jpg", ".png", ".tif", ".tiff", ".webp"}
 
@@ -127,11 +128,12 @@ def validate_split(
             if box[2] <= 0 or box[3] <= 0:
                 raise ValueError(f"{label_path}:{line_number}: box width and height must be positive")
             x_center, y_center, width, height = box
+            box_tolerance = 1e-6
             if (
-                x_center - width / 2 < 0
-                or x_center + width / 2 > 1
-                or y_center - height / 2 < 0
-                or y_center + height / 2 > 1
+                x_center - width / 2 < -box_tolerance
+                or x_center + width / 2 > 1 + box_tolerance
+                or y_center - height / 2 < -box_tolerance
+                or y_center + height / 2 > 1 + box_tolerance
             ):
                 raise ValueError(f"{label_path}:{line_number}: bounding box extends outside the image")
 

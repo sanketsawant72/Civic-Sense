@@ -81,6 +81,7 @@ LABEL_TO_CATEGORY = {
     "illegal construction": "construction",
     "unauthorized construction": "construction",
     "encroachment": "construction",
+    "other": "other",
 }
 
 # Human-readable names per category (for display)

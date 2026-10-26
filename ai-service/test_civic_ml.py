@@ -54,7 +54,7 @@ class DatasetValidationTests(unittest.TestCase):
 
     def test_rejects_class_id_outside_dataset_classes(self):
         _, label_path = self.write_image("train", "wrong-class.jpg", "image")
-        label_path.write_text("6 0.5 0.5 0.4 0.3\n", encoding="utf-8")
+        label_path.write_text("7 0.5 0.5 0.4 0.3\n", encoding="utf-8")
         with self.assertRaisesRegex(ValueError, "class ID is out of range"):
             validate_dataset(self.config_path)
 
@@ -82,11 +82,44 @@ class RoboflowImportTests(unittest.TestCase):
     def test_converts_polygon_annotation_to_detection_box(self):
         result = polygon_to_box(
             ["0", "0.1", "0.2", "0.5", "0.2", "0.5", "0.8", "0.1", "0.8"],
-            ["garbage"],
+            [0],
             "sample.txt",
             1,
         )
         self.assertEqual(result, "0 0.30000000 0.50000000 0.40000000 0.60000000")
+
+    def test_maps_multiple_source_labels_into_api_categories(self):
+        source_names = [
+            "broken_street_lights", "fallen_tree", "illegal dumping",
+            "overflowing bin", "potholes", "waterlogging",
+        ]
+        output = self.root / "mapped.zip"
+        with zipfile.ZipFile(output, "w") as archive:
+            archive.writestr(
+                "data.yaml",
+                yaml.safe_dump({
+                    "names": source_names,
+                    "train": "train/images",
+                    "val": "valid/images",
+                    "test": "test/images",
+                }),
+            )
+            for split in ("train", "valid", "test"):
+                archive.writestr(f"{split}/images/example.jpg", "image-" + split)
+                archive.writestr(
+                    f"{split}/labels/example.txt",
+                    "\n".join(f"{index} 0.5 0.5 0.2 0.2" for index in range(6)),
+                )
+
+        imported = import_dataset(output, self.root / "mapped")
+        self.assertEqual(
+            imported["classes"],
+            ["pothole", "garbage", "drainage", "streetlight", "other"],
+        )
+        mapped_labels = (
+            self.root / "mapped" / "labels" / "train" / "example.txt"
+        ).read_text(encoding="utf-8").splitlines()
+        self.assertEqual([line.split()[0] for line in mapped_labels], ["3", "4", "1", "1", "0", "2"])
 
     def test_keeps_existing_box_and_imports_roboflow_splits(self):
         with zipfile.ZipFile(self.zip_path, "w") as archive:

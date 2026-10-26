@@ -66,9 +66,9 @@ deliberately not used as evidence of an issue.
 
 ## Train, test, and predict
 
-The repository does not include a labeled civic-issue dataset, so training cannot
-produce a usable model until you prepare one. This pipeline uses YOLO object
-detection labels: each issue in a photo needs a bounding box and one class ID.
+The repository does not include a labeled civic-issue dataset. This pipeline uses
+YOLO object detection labels: each issue in a photo needs a bounding box and one
+class ID.
 
 ### 1. Prepare and label images
 
@@ -96,7 +96,7 @@ personal or sensitive information in a public dataset.
 Use these class IDs in this exact order, matching
 [`dataset.example.yaml`](./dataset.example.yaml):
 
-| ID | Class |
+| ID | CivicSense class |
 |---:|---|
 | 0 | `pothole` |
 | 1 | `garbage` |
@@ -104,13 +104,14 @@ Use these class IDs in this exact order, matching
 | 3 | `water` |
 | 4 | `streetlight` |
 | 5 | `construction` |
+| 6 | `other` |
 
 Copy `dataset.example.yaml` to `dataset.yaml` and set `path` to the dataset's
 absolute folder path (for example, `C:/data/civic-dataset` on Windows). Ultralytics
 resolves relative dataset paths against its configured global datasets folder, not
 the YAML file's directory. Do not commit the photos or trained weights to Git.
 
-If you have a Roboflow YOLOv8 ZIP, import it with:
+Import a Roboflow YOLOv8 ZIP with:
 
 ```powershell
 python import_roboflow.py --zip "C:\path\to\dataset.yolov8.zip" --output civic-dataset
@@ -118,16 +119,29 @@ python import_roboflow.py --zip "C:\path\to\dataset.yolov8.zip" --output civic-d
 
 The importer reads the class names and train/validation/test splits from
 `data.yaml`, converts YOLO polygon segmentation annotations to bounding boxes,
-and writes `civic-dataset/dataset.yaml` with an absolute dataset path. It accepts only classes supported by the
-application and refuses to overwrite an existing output unless `--overwrite` is
-provided.
+maps supported source labels to CivicSense classes, and writes
+`civic-dataset/dataset.yaml` with an absolute dataset path. For example,
+`broken_street_lights` maps to `streetlight`, `illegal dumping` and
+`overflowing bin` map to `garbage`, `waterlogging` maps to `drainage`, and
+`fallen_tree` maps to `other`. It refuses to overwrite an existing output unless
+`--overwrite` is provided.
+
+The provided Civic Issues v6 export is the superset of the supplied v3, v4, and
+v5 exports: the older archives' images are exact subsets of v6 with matching
+train/validation/test splits. Import **v6 only** to avoid duplicating the same
+photos across data splits. Keep all dataset archives local; they are excluded
+from Git.
+
+```powershell
+python import_roboflow.py --zip "C:\Users\Sanket\Downloads\Civic Issues.v6-waterlogging.yolov8.zip" --output civic-issues-v6
+```
 
 ### 2. Install and validate the dataset
 
 ```powershell
 cd ai-service
 python -m pip install -r requirements.txt
-python civic_ml.py check-data --data civic-dataset/dataset.yaml
+python civic_ml.py check-data --data civic-issues-v6/dataset.yaml
 python -m unittest test_civic_ml.py
 ```
 
@@ -137,7 +151,7 @@ identical images leaking across splits. Fix every reported error before training
 ### 3. Train and evaluate on held-out test images
 
 ```powershell
-python civic_ml.py train --data civic-dataset/dataset.yaml --epochs 100 --batch 16 --device 0
+python civic_ml.py train --data civic-issues-v6/dataset.yaml --epochs 100 --batch 16 --device 0
 ```
 
 Use `--device cpu` if there is no compatible NVIDIA GPU; CPU training may take
@@ -151,7 +165,7 @@ additional photos from the actual reporting environment before deployment.
 Re-evaluate saved weights without retraining:
 
 ```powershell
-python civic_ml.py evaluate --data civic-dataset/dataset.yaml --weights runs/civic/yolov8n/weights/best.pt --split test
+python civic_ml.py evaluate --data civic-issues-v6/dataset.yaml --weights runs/civic/yolov8n/weights/best.pt --split test
 ```
 
 ### 4. Predict on new photos
