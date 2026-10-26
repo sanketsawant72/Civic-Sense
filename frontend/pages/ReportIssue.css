@@ -1183,3 +1183,40 @@
   font-size: 12.5px;
   color: var(--text);
 }
+
+/* AI issue description from Gemini */
+.ai-issue-desc {
+  font-size: 13px;
+  color: var(--text);
+  font-style: italic;
+  margin: 0;
+  line-height: 1.55;
+  padding: 6px 10px;
+  background: var(--bg);
+  border-radius: var(--radius);
+  border-left: 3px solid var(--navy);
+}
+
+/* Urgency flag */
+.ai-urgency-flag {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px;
+  border-radius: var(--radius);
+  font-size: 12px;
+  font-weight: 700;
+  width: fit-content;
+}
+
+.ai-urgency-flag--critical {
+  background: var(--danger-bg);
+  color: var(--danger);
+  border: 1px solid color-mix(in srgb, var(--danger) 25%, transparent);
+}
+
+.ai-urgency-flag--urgent {
+  background: var(--warning-bg);
+  color: var(--warning);
+  border: 1px solid color-mix(in srgb, var(--warning) 25%, transparent);
+}

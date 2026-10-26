@@ -1,0 +1,36 @@
+services:
+  # ── Express + MongoDB API ─────────────────────────────────────────────────
+  - type: web
+    name: civicsense-api
+    runtime: node
+    region: singapore   # closest to India
+    plan: free
+    rootDir: server
+    buildCommand: npm install
+    startCommand: node index.js
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 3001
+      - key: MONGO_URI
+        sync: false          # set in Render dashboard
+      - key: JWT_SECRET
+        sync: false          # set in Render dashboard
+      - key: CLIENT_ORIGIN
+        sync: false          # your Netlify URL e.g. https://civicsense.netlify.app
+      - key: AI_SERVICE_URL
+        sync: false          # URL of civicsense-ai service below
+
+  # ── Python FastAPI AI Service ─────────────────────────────────────────────
+  - type: web
+    name: civicsense-ai
+    runtime: python
+    region: singapore
+    plan: free
+    rootDir: ai-service
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: GEMINI_API_KEY
+        sync: false          # set in Render dashboard

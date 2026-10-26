@@ -1,96 +1,73 @@
 """
 CivicSense AI Classification Service
 =====================================
-FastAPI + YOLOv8 (Ultralytics) — classifies civic issue photos.
+Google Gemini Vision — classifies civic issue photos.
+
+Gemini understands real-world scenes: potholes, garbage, waterlogging,
+broken streetlights, sewage overflow, illegal construction — without
+any custom model training.
 
 Endpoints:
-  POST /classify   — accepts base64 image, returns predicted issue + confidence
+  POST /classify   — accepts base64 image, returns predicted category + confidence
   GET  /health     — liveness check
 
-Run:
+Run locally:
   uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+
+Environment variables:
+  GEMINI_API_KEY   — Google AI Studio key (required)
 """
 
 import io
 import base64
+import json
 import logging
 import os
-from pathlib import Path
+import re
 from typing import Optional
 
-import numpy as np
-import torch
+from dotenv import load_dotenv
 from PIL import Image
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from ultralytics import YOLO
+import google.generativeai as genai
+
+# ── Load env ──────────────────────────────────────────────────────────────────
+load_dotenv()
 
 # ── Logging ───────────────────────────────────────────────────────────────────
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger("civicsense-ai")
 
-# Keep CPU inference within the memory and thread limits of small web instances.
-torch.set_num_threads(1)
-torch.set_num_interop_threads(1)
+# ── Gemini setup ──────────────────────────────────────────────────────────────
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
+if not GEMINI_API_KEY:
+    log.warning("GEMINI_API_KEY not set — /classify will return fallback responses.")
+    GEMINI_READY = False
+else:
+    genai.configure(api_key=GEMINI_API_KEY)
+    GEMINI_READY = True
+    log.info("Gemini API configured.")
+
+GEMINI_MODEL = "gemini-1.5-flash"   # Free tier, fast, excellent vision
 
 # ── App ───────────────────────────────────────────────────────────────────────
 app = FastAPI(
     title="CivicSense AI Service",
-    description="YOLOv8-based civic issue image classifier",
-    version="1.0.0",
+    description="Gemini Vision civic issue classifier",
+    version="2.0.0",
 )
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],   # Express proxy calls this — open in dev
+    allow_origins=["*"],
     allow_methods=["GET", "POST"],
     allow_headers=["*"],
 )
 
-# ── Civic category mapping ────────────────────────────────────────────────────
-# Only map labels that directly describe civic-issue evidence. Generic objects
-# (such as cars, bottles, furniture, or traffic lights) are not proof of an issue.
-# Add labels here when using a custom model trained to recognize civic problems.
-LABEL_TO_CATEGORY = {
-    "pothole": "pothole",
-    "road damage": "pothole",
-    "road crack": "pothole",
-    "broken road": "pothole",
-    "garbage": "garbage",
-    "trash": "garbage",
-    "waste": "garbage",
-    "rubbish": "garbage",
-    "litter": "garbage",
-    "overflowing bin": "garbage",
-    "illegal dumping": "garbage",
-    "drainage": "drainage",
-    "sewage": "drainage",
-    "blocked drain": "drainage",
-    "flooding": "drainage",
-    "waterlogging": "drainage",
-    "manhole": "drainage",
-    "pipe burst": "water",
-    "water leak": "water",
-    "leakage": "water",
-    "streetlight": "streetlight",
-    "street light": "streetlight",
-    "street lamp": "streetlight",
-    "electric pole": "streetlight",
-    "utility pole": "streetlight",
-    "power line": "streetlight",
-    "electrical wire": "streetlight",
-    "exposed wire": "streetlight",
-    "transformer": "streetlight",
-    "electrical fault": "streetlight",
-    "illegal construction": "construction",
-    "unauthorized construction": "construction",
-    "encroachment": "construction",
-    "other": "other",
-}
-
-# Human-readable names per category (for display)
-CATEGORY_LABELS = {
+# ── Category definitions ──────────────────────────────────────────────────────
+CATEGORIES = {
     "pothole":      "Pothole & Road Damage",
     "garbage":      "Garbage & Waste",
     "drainage":     "Drainage & Sewage",
@@ -100,175 +77,190 @@ CATEGORY_LABELS = {
     "other":        "Other Civic Issue",
 }
 
-# ── Model loading ─────────────────────────────────────────────────────────────
-DEFAULT_MODEL_PATH = Path(__file__).parent / "model" / "civic-best.pt"
-CONFIGURED_MODEL_PATH = os.getenv("CIVIC_MODEL_PATH", "").strip()
-MODEL_PATH = Path(CONFIGURED_MODEL_PATH).expanduser() if CONFIGURED_MODEL_PATH else DEFAULT_MODEL_PATH
+# ── Prompt sent to Gemini ─────────────────────────────────────────────────────
+CLASSIFY_PROMPT = """You are a civic issue classifier for Indian municipal corporations.
 
-if CONFIGURED_MODEL_PATH and not MODEL_PATH.is_file():
-    raise RuntimeError(f"CIVIC_MODEL_PATH does not point to a model file: {MODEL_PATH}")
+Analyze this image and identify the civic problem shown.
 
-HAS_CIVIC_MODEL = MODEL_PATH.is_file()
-MODEL_SOURCE = str(MODEL_PATH) if HAS_CIVIC_MODEL else "yolov8n.pt (general-purpose COCO baseline)"
-log.info("Loading YOLO model: %s", MODEL_SOURCE)
-model = YOLO(str(MODEL_PATH) if HAS_CIVIC_MODEL else "yolov8n.pt")
+Choose ONE category from this list:
+- pothole      → road damage, potholes, broken roads, cracks in asphalt
+- garbage      → garbage dumps, overflowing bins, litter, waste on roads/public areas
+- drainage     → blocked drains, sewage overflow, waterlogging, flooded roads, open manholes
+- water        → broken pipes, water leakage, burst pipes, no water supply
+- streetlight  → broken street lights, fallen poles, exposed wires, electrical hazards
+- construction → illegal construction, encroachment, unauthorized structures on footpaths
+- other        → any other civic issue that doesn't fit above
 
-MODEL_CLASS_NAMES = {
-    str(name).strip().lower()
-    for name in model.names.values()
-} if isinstance(model.names, dict) else {
-    str(name).strip().lower()
-    for name in model.names
+Respond ONLY with this exact JSON format (no extra text, no markdown):
+{
+  "category": "one of the 7 categories above",
+  "confidence": 0.85,
+  "issue_description": "one clear sentence describing what you see",
+  "detected_objects": ["object1", "object2"],
+  "urgency": "Normal|Urgent|Critical"
 }
-UNSUPPORTED_MODEL_CLASSES = MODEL_CLASS_NAMES - set(LABEL_TO_CATEGORY)
-if CONFIGURED_MODEL_PATH and (not MODEL_CLASS_NAMES or UNSUPPORTED_MODEL_CLASSES):
-    unsupported_labels = ", ".join(sorted(UNSUPPORTED_MODEL_CLASSES))
-    raise RuntimeError(
-        "Configured model must contain at least one supported civic class, "
-        f"and all class names must map to CivicSense categories. Unsupported: {unsupported_labels or 'none'}"
-    )
 
-CIVIC_MODEL_READY = HAS_CIVIC_MODEL
-MODEL_NAME = MODEL_PATH.name if HAS_CIVIC_MODEL else "yolov8n.pt (COCO baseline)"
-MODEL_WARNING = None if CIVIC_MODEL_READY else (
-    "The general-purpose YOLOv8 COCO model is loaded. It is not trained to recognize "
-    "civic issues; configure CIVIC_MODEL_PATH with civic-trained weights for verification."
-)
-log.info("YOLO model loaded; civic model ready: %s", CIVIC_MODEL_READY)
-
+Rules:
+- confidence is a number between 0.0 and 1.0
+- urgency is Critical if there is danger to life (exposed wire, deep sinkhole, flooding)
+- urgency is Urgent if the issue needs attention within 24-48 hours
+- urgency is Normal for routine maintenance issues
+- If the image does not show a civic issue, use category "other" with confidence 0.3
+"""
 
 # ── Schemas ───────────────────────────────────────────────────────────────────
 class ClassifyRequest(BaseModel):
-    image: str             # base64-encoded image (with or without data-URL prefix)
-    filename: Optional[str] = "image.jpg"
-
-
-class DetectedObject(BaseModel):
-    label: str
-    confidence: float
-    bbox: list[float]      # [x1, y1, x2, y2] normalised 0–1
+    image: str              # base64-encoded image (with or without data-URL prefix)
+    filename: Optional[str] = "photo.jpg"
 
 
 class ClassifyResponse(BaseModel):
-    category: str          # CivicSense category id
-    category_label: str    # Human readable
-    confidence: float      # 0.0 – 1.0
-    top_label: str         # raw YOLO label that drove the decision
-    detected_objects: list[DetectedObject]
+    category: str           # CivicSense category id
+    category_label: str     # Human readable
+    confidence: float       # 0.0 – 1.0
+    issue_description: str  # What Gemini saw
+    detected_objects: list[str]
+    urgency: str            # Normal | Urgent | Critical
     ai_powered: bool = True
-    model: str = MODEL_NAME
-    civic_model_ready: bool = CIVIC_MODEL_READY
-    warning: Optional[str] = MODEL_WARNING
+    model: str = GEMINI_MODEL
+    fallback: bool = False
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
-def decode_base64_image(b64: str) -> Image.Image:
-    """Strip data-URL prefix if present and decode to PIL Image."""
-    if "," in b64:
-        b64 = b64.split(",", 1)[1]
-    # Add padding if needed
+def decode_base64_image(b64: str) -> tuple[bytes, str]:
+    """Strip data-URL prefix if present. Returns (raw_bytes, mime_type)."""
+    mime = "image/jpeg"
+    if b64.startswith("data:"):
+        header, b64 = b64.split(",", 1)
+        if "png" in header:
+            mime = "image/png"
+        elif "webp" in header:
+            mime = "image/webp"
+    # Fix padding
     b64 += "=" * (-len(b64) % 4)
-    raw = base64.b64decode(b64)
-    return Image.open(io.BytesIO(raw)).convert("RGB")
+    return base64.b64decode(b64), mime
 
 
-def map_label_to_category(label: str) -> str:
-    """Return CivicSense category id for a YOLO class label."""
-    return LABEL_TO_CATEGORY.get(label.strip().lower(), "other")
+def parse_gemini_response(text: str) -> dict:
+    """Extract JSON from Gemini response, even if it has surrounding text."""
+    # Try direct parse first
+    try:
+        return json.loads(text.strip())
+    except json.JSONDecodeError:
+        pass
+    # Extract JSON block
+    match = re.search(r'\{[\s\S]*\}', text)
+    if match:
+        try:
+            return json.loads(match.group())
+        except json.JSONDecodeError:
+            pass
+    return {}
 
 
-def pick_best_detection(results) -> tuple[str, str, float, list]:
-    """
-    Pick the highest-confidence detection and map it to a civic category.
-    Returns (category_id, raw_label, confidence, all_objects).
-    """
-    detections = []
-    for result in results:
-        boxes  = result.boxes
-        names  = result.names
-        for box in boxes:
-            label = names[int(box.cls[0])]
-            conf  = float(box.conf[0])
-            xyxy  = box.xyxy[0].tolist()   # absolute pixels
-            # Normalise bbox to 0-1 relative to image size
-            h, w  = result.orig_shape
-            norm  = [xyxy[0]/w, xyxy[1]/h, xyxy[2]/w, xyxy[3]/h]
-            detections.append((label, conf, norm))
-
-    if not detections:
-        return "other", "unknown", 0.0, []
-
-    # Sort by confidence descending
-    detections.sort(key=lambda x: x[1], reverse=True)
-
-    # Prefer detections whose label maps to a non-"other" civic category
-    civic_detections = [d for d in detections if map_label_to_category(d[0]) != "other"]
-    best = civic_detections[0] if civic_detections else detections[0]
-
-    top_label, top_conf, _ = best
-    category = map_label_to_category(top_label)
-
-    all_objects = [
-        DetectedObject(label=d[0], confidence=round(d[1], 3), bbox=d[2])
-        for d in detections[:10]   # return top-10 objects
-    ]
-    return category, top_label, round(top_conf, 3), all_objects
+def fallback_response() -> ClassifyResponse:
+    """Return when Gemini is unavailable."""
+    return ClassifyResponse(
+        category="other",
+        category_label="Other Civic Issue",
+        confidence=0.0,
+        issue_description="AI classification unavailable — please describe the issue manually.",
+        detected_objects=[],
+        urgency="Normal",
+        ai_powered=False,
+        fallback=True,
+    )
 
 
 # ── Routes ────────────────────────────────────────────────────────────────────
 @app.get("/health")
 def health():
     return {
-        "ok": True,
-        "model": MODEL_NAME,
-        "civic_model_ready": CIVIC_MODEL_READY,
-        "warning": MODEL_WARNING,
-        "service": "CivicSense AI",
+        "ok":           True,
+        "model":        GEMINI_MODEL,
+        "gemini_ready": GEMINI_READY,
+        "service":      "CivicSense AI (Gemini Vision)",
     }
 
 
 @app.post("/classify", response_model=ClassifyResponse)
 def classify(req: ClassifyRequest):
     """
-    Accept a base64-encoded image, run YOLOv8 inference,
-    return the predicted civic issue category + confidence.
+    Accept a base64-encoded image, send to Gemini Vision,
+    return the predicted civic issue category.
     """
-    # 1. Decode image
+    # ── No API key — return fallback ──────────────────────────────────────────
+    if not GEMINI_READY:
+        log.warning("Classify called but GEMINI_API_KEY not set — returning fallback.")
+        return fallback_response()
+
+    # ── Decode image ──────────────────────────────────────────────────────────
     try:
-        img = decode_base64_image(req.image)
+        raw_bytes, mime_type = decode_base64_image(req.image)
+        # Validate it's a real image
+        img = Image.open(io.BytesIO(raw_bytes))
+        img.verify()
     except Exception as exc:
         raise HTTPException(status_code=400, detail=f"Invalid image: {exc}")
 
-    # 2. Run inference
+    # ── Call Gemini Vision ────────────────────────────────────────────────────
     try:
-        results = model.predict(
-            source=np.array(img),
-            imgsz=320,
-            conf=0.25,          # minimum confidence threshold
-            iou=0.45,
-            max_det=10,
-            device="cpu",
-            verbose=False,
+        model = genai.GenerativeModel(GEMINI_MODEL)
+        image_part = {
+            "mime_type": mime_type,
+            "data":      raw_bytes,
+        }
+        response = model.generate_content(
+            [CLASSIFY_PROMPT, image_part],
+            generation_config=genai.GenerationConfig(
+                temperature=0.1,       # Low temp → consistent classification
+                max_output_tokens=300,
+            ),
         )
-    except Exception as exc:
-        log.error("YOLO inference failed: %s", exc)
-        raise HTTPException(status_code=500, detail=f"Inference failed: {exc}")
+        raw_text = response.text
+        log.info("Gemini raw response: %s", raw_text[:200])
 
-    # 3. Map to civic category
-    category, top_label, confidence, objects = pick_best_detection(results)
+    except Exception as exc:
+        log.error("Gemini API error: %s", exc)
+        # Return fallback instead of crashing — never block form submission
+        return fallback_response()
+
+    # ── Parse response ────────────────────────────────────────────────────────
+    parsed = parse_gemini_response(raw_text)
+
+    if not parsed:
+        log.warning("Could not parse Gemini response: %s", raw_text)
+        return fallback_response()
+
+    # Validate and sanitise
+    category = parsed.get("category", "other").lower().strip()
+    if category not in CATEGORIES:
+        category = "other"
+
+    confidence = float(parsed.get("confidence", 0.5))
+    confidence = max(0.0, min(1.0, confidence))   # clamp 0–1
+
+    urgency = parsed.get("urgency", "Normal")
+    if urgency not in ("Normal", "Urgent", "Critical"):
+        urgency = "Normal"
+
+    issue_description = parsed.get("issue_description", "Civic issue detected.")
+    detected_objects  = parsed.get("detected_objects", [])
+    if not isinstance(detected_objects, list):
+        detected_objects = []
 
     log.info(
-        "Classified → category=%s  label=%s  conf=%.2f  objects=%d",
-        category, top_label, confidence, len(objects)
+        "Classified → category=%s  conf=%.2f  urgency=%s  desc=%s",
+        category, confidence, urgency, issue_description[:80]
     )
 
     return ClassifyResponse(
         category=category,
-        category_label=CATEGORY_LABELS.get(category, "Other Civic Issue"),
+        category_label=CATEGORIES.get(category, "Other Civic Issue"),
         confidence=confidence,
-        top_label=top_label,
-        detected_objects=objects,
-        model=MODEL_NAME,
-        civic_model_ready=CIVIC_MODEL_READY,
-        warning=MODEL_WARNING,
+        issue_description=issue_description,
+        detected_objects=detected_objects[:8],
+        urgency=urgency,
+        model=GEMINI_MODEL,
+        fallback=False,
     )

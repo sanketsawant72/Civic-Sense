@@ -611,7 +611,7 @@ export default function ReportIssue() {
                       <div className="ai-classify-card__header">
                         <Brain size={16} strokeWidth={2} className="ai-classify-card__brain" aria-hidden="true" />
                         <span className="ai-classify-card__title">AI Detection Result</span>
-                        <span className="ai-classify-card__model">YOLOv8n</span>
+                        <span className="ai-classify-card__model">Gemini Vision</span>
                       </div>
 
                       <div className="ai-classify-card__body">
@@ -660,20 +660,32 @@ export default function ReportIssue() {
                           </div>
                         </div>
 
-                        {/* Detected objects list */}
+                        {/* AI issue description */}
+                        {aiResult.issue_description && (
+                          <p className="ai-issue-desc">
+                            &ldquo;{aiResult.issue_description}&rdquo;
+                          </p>
+                        )}
+
+                        {/* Detected objects — Gemini returns string[] */}
                         {aiResult.detected_objects?.length > 0 && (
                           <div className="ai-objects">
-                            <span className="ai-objects__label">Objects detected:</span>
+                            <span className="ai-objects__label">Detected in photo:</span>
                             <div className="ai-objects__chips">
-                              {aiResult.detected_objects.slice(0, 5).map((obj, i) => (
+                              {aiResult.detected_objects.slice(0, 6).map((obj, i) => (
                                 <span key={i} className="ai-obj-chip">
-                                  {obj.label}
-                                  <span className="ai-obj-chip__conf">
-                                    {Math.round(obj.confidence * 100)}%
-                                  </span>
+                                  {typeof obj === 'string' ? obj : obj.label}
                                 </span>
                               ))}
                             </div>
+                          </div>
+                        )}
+
+                        {/* Urgency from Gemini */}
+                        {aiResult.urgency && aiResult.urgency !== 'Normal' && (
+                          <div className={`ai-urgency-flag ai-urgency-flag--${aiResult.urgency.toLowerCase()}`}>
+                            <Zap size={13} strokeWidth={2.5} aria-hidden="true" />
+                            {aiResult.urgency} urgency detected by AI
                           </div>
                         )}
 

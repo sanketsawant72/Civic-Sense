@@ -40,11 +40,6 @@ export default function AppShell() {
           <span>© {new Date().getFullYear()} CivicSense · Smart Civic Reporting</span>
           <span className="footer-sep" aria-hidden="true">·</span>
           <span>For Indian Municipal Corporations</span>
-          {apiOnline === true && (
-            <span className="footer-db">
-              <span className="footer-db__dot" aria-hidden="true" /> MongoDB connected
-            </span>
-          )}
         </div>
       </footer>
     </div>

@@ -37,3 +37,4 @@ ai-service/*.pt
 # Environment files — never commit real secrets
 .env
 server/.env
+ai-service/.env
