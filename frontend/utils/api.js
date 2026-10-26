@@ -72,6 +72,13 @@ export function createComplaint(payload) {
   return request('/complaints', { method: 'POST', body: JSON.stringify(payload) });
 }
 
+export function checkDuplicateComplaints(payload) {
+  return request('/complaints/duplicates/check', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+}
+
 export function patchStatus(id, status, note = '') {
   return request(`/complaints/${encodeURIComponent(id)}/status`, {
     method: 'PATCH',

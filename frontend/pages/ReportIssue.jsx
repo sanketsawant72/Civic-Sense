@@ -14,7 +14,7 @@ import { t, CATEGORIES, ASHTA }        from '../data/constants';
 import { analyzeComplaint }            from '../utils/severity';
 import { readFileAsDataUrl }           from '../utils/helpers';
 import { extractGpsFromFile }          from '../utils/exif';
-import { classifyImage }               from '../utils/api.js';
+import { checkDuplicateComplaints, classifyImage } from '../utils/api.js';
 import './ReportIssue.css';
 
 // ── Leaflet icon fix ──────────────────────────────────────────────────────────
@@ -117,6 +117,9 @@ export default function ReportIssue() {
   const [submitted, setSubmitted] = useState(false);
   const [newId,     setNewId]     = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [duplicateMatches, setDuplicateMatches] = useState([]);
+  const [duplicateCheckKey, setDuplicateCheckKey] = useState('');
+  const [duplicateCheckError, setDuplicateCheckError] = useState('');
 
   // GPS detection state (requested only after the user chooses "photo taken here")
   const [gpsLoading,  setGpsLoading]  = useState(false);
@@ -142,6 +145,15 @@ export default function ReportIssue() {
   const priMeta  = PRIORITY_META[analysis.priority] || PRIORITY_META.Low;
   const UrgIcon  = urgMeta.icon;
   const selectedCategory = category || analysis.category;
+  const currentDuplicateKey = JSON.stringify([
+    title.trim(),
+    desc.trim(),
+    analysis.category,
+    position?.[0] ?? ASHTA.lat,
+    position?.[1] ?? ASHTA.lng,
+  ]);
+  const hasCurrentDuplicateMatches = duplicateMatches.length > 0
+    && duplicateCheckKey === currentDuplicateKey;
   const photoCategoryMismatch = Boolean(
     aiStatus === 'done' && aiResult && selectedCategory !== aiResult.category
   );
@@ -282,25 +294,41 @@ export default function ReportIssue() {
   }
 
   // ── Submit ─────────────────────────────────────────────────────────────────
-  async function handleSubmit() {
+  async function handleSubmit(submitDespiteMatches = false) {
     if (!canNext[1] || !canNext[2]) return;
     setSubmitting(true);
     const [lat, lng] = position || [ASHTA.lat, ASHTA.lng];
+    const payload = {
+      title:       title.trim(),
+      description: desc.trim(),
+      category:    analysis.category,
+      priority:    analysis.priority,
+      lat, lng,
+      photo,
+      submittedBy: 'citizen',
+      submittedAt: Date.now(),
+    };
+    const payloadKey = JSON.stringify([
+      payload.title, payload.description, payload.category, lat, lng,
+    ]);
     try {
-      const created = await addComplaint({
-        title:       title.trim(),
-        description: desc.trim(),
-        category:    analysis.category,
-        priority:    analysis.priority,
-        lat, lng,
-        photo,
-        submittedBy: 'citizen',
-        submittedAt: Date.now(),
-      });
+      setDuplicateCheckError('');
+      if (!submitDespiteMatches || duplicateCheckKey !== payloadKey) {
+        const { matches } = await checkDuplicateComplaints(payload);
+        if (matches.length > 0) {
+          setDuplicateMatches(matches);
+          setDuplicateCheckKey(payloadKey);
+          return;
+        }
+      }
+
+      const created = await addComplaint(payload);
+      setDuplicateMatches([]);
+      setDuplicateCheckKey('');
       setNewId(created.id);
       setSubmitted(true);
-    } catch {
-      // error shown by AppShell banner
+    } catch (error) {
+      setDuplicateCheckError(error.message || 'Could not check for nearby duplicate reports.');
     } finally {
       setSubmitting(false);
     }
@@ -1098,6 +1126,46 @@ export default function ReportIssue() {
                 This will be sent to <strong>{catObj?.dept}</strong>.
               </span>
             </div>
+
+            {duplicateCheckError && (
+              <div className="duplicate-warning duplicate-warning--error" role="alert">
+                <AlertCircle size={17} aria-hidden="true" />
+                <span>{duplicateCheckError}</span>
+              </div>
+            )}
+
+            {hasCurrentDuplicateMatches && (
+              <div className="duplicate-warning" role="status" aria-live="polite">
+                <div className="duplicate-warning__heading">
+                  <AlertTriangle size={18} aria-hidden="true" />
+                  <strong>Possible duplicate reports nearby</strong>
+                </div>
+                <p>
+                  We found active reports in the same category within 100 m with similar titles and descriptions.
+                  Check whether one already covers this issue before submitting another report.
+                </p>
+                <ul className="duplicate-match-list">
+                  {duplicateMatches.map((match) => (
+                    <li key={match.id}>
+                      <span>
+                        {match.id} · {match.status} · about {match.distanceMeters} m away
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+                <button
+                  type="button"
+                  className="btn btn-outline btn-sm"
+                  onClick={() => {
+                    setDuplicateMatches([]);
+                    setDuplicateCheckKey('');
+                    setStep(2);
+                  }}
+                >
+                  Edit report
+                </button>
+              </div>
+            )}
           </div>
         )}
 
@@ -1122,14 +1190,16 @@ export default function ReportIssue() {
               <button
                 type="button"
                 className="btn btn-primary btn-lg"
-                onClick={handleSubmit}
+                onClick={() => handleSubmit(hasCurrentDuplicateMatches)}
                 disabled={submitting}
               >
                 {submitting
                   ? <span className="auth-spinner" aria-hidden="true" />
                   : <CheckCheck size={16} strokeWidth={2.5} aria-hidden="true" />
                 }
-                {submitting ? 'Submitting…' : 'Submit Complaint'}
+                {submitting
+                  ? 'Submitting…'
+                  : hasCurrentDuplicateMatches ? 'Submit anyway' : 'Submit Complaint'}
               </button>
             )}
           </div>

@@ -38,6 +38,8 @@ The landing page is for citizens. Staff sign-in portals are available directly a
 
 When a photo is added, the app reads GPS coordinates from its metadata when available. If it has no saved GPS, the reporter chooses whether it was taken at their current location or somewhere else; the current-location choice asks for browser permission, while the other-location choice opens a map to pin the photo's location. Device GPS requires a secure HTTPS origin (localhost is also allowed), and mobile browsers may also require location services to be enabled. An older or forwarded image without GPS metadata cannot reveal where it was originally taken from image pixels alone.
 
+Before a report is saved, the API checks active complaints in the same category within 100 meters. It compares title and description using word overlap; likely matches are shown as a warning, and citizens can still choose to submit.
+
 If the optional AI service is offline, reports can still be submitted with a photo. The photo is attached but not marked as AI-verified, and the reporter chooses the issue category manually. The default YOLO model is not trained for civic issues; reliable civic photo verification requires deploying the AI service and providing civic-issue model weights as described in [ai-service/README.md](./ai-service/README.md).
 
 ## Local login accounts
@@ -81,6 +83,8 @@ Import this GitHub repository into Vercel and configure the project:
 Replace the example API URL with your Render service URL, without a trailing slash or `/api`. The root `vercel.json` rewrites frontend routes to `index.html` so direct links and browser refreshes work.
 
 After deploying, set the Render API's `CLIENT_ORIGIN` environment variable to the exact Vercel site origin (for example, `https://<your-project>.vercel.app`) and redeploy the API. Redeploy the Vercel site whenever you change `VITE_API_BASE`.
+
+Frontend pages are loaded on demand so the initial download does not include maps, admin charts, and other screens that are not being viewed. The app also checks API health and loads the signed-in user's complaints concurrently. If the Render API is on a plan that sleeps while idle, its first request can still be delayed while the service starts; an always-on service is needed to avoid that cold-start delay.
 
 ### Enable production photo verification
 

@@ -1,30 +1,23 @@
-import { useEffect } from 'react';
+import { lazy, Suspense, useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from './store/useAuthStore';
 import { useStore }     from './store/useStore';
 import AppShell         from './components/layout/AppShell';
 
-// ── Public pages (no shell) ───────────────────────────────────────────────────
-import Landing  from './pages/Landing';
-import Login    from './pages/Login';
-import Register from './pages/Register';
-
-// ── Citizen pages ─────────────────────────────────────────────────────────────
-import Home           from './pages/Home';
-import ReportIssue    from './pages/ReportIssue';
-import MyComplaints   from './pages/MyComplaints';
-import CommunityMap   from './pages/CommunityMap';
-import TrackComplaint from './pages/TrackComplaint';
-
-// ── Admin pages ───────────────────────────────────────────────────────────────
-import Dashboard         from './pages/admin/Dashboard';
-import ManageComplaints  from './pages/admin/ManageComplaints';
-import MapOverview       from './pages/admin/MapOverview';
-import ManageDepartments from './pages/admin/ManageDepartments';
-
-// ── Department pages ──────────────────────────────────────────────────────────
-import DeptDashboard  from './pages/department/DeptDashboard';
-import DeptComplaints from './pages/department/DeptComplaints';
+const Landing = lazy(() => import('./pages/Landing'));
+const Login = lazy(() => import('./pages/Login'));
+const Register = lazy(() => import('./pages/Register'));
+const Home = lazy(() => import('./pages/Home'));
+const ReportIssue = lazy(() => import('./pages/ReportIssue'));
+const MyComplaints = lazy(() => import('./pages/MyComplaints'));
+const CommunityMap = lazy(() => import('./pages/CommunityMap'));
+const TrackComplaint = lazy(() => import('./pages/TrackComplaint'));
+const Dashboard = lazy(() => import('./pages/admin/Dashboard'));
+const ManageComplaints = lazy(() => import('./pages/admin/ManageComplaints'));
+const MapOverview = lazy(() => import('./pages/admin/MapOverview'));
+const ManageDepartments = lazy(() => import('./pages/admin/ManageDepartments'));
+const DeptDashboard = lazy(() => import('./pages/department/DeptDashboard'));
+const DeptComplaints = lazy(() => import('./pages/department/DeptComplaints'));
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -61,14 +54,13 @@ function ProtectedRoute({ children, roles }) {
   return children;
 }
 
-/** On mount: health-check then load complaints if a token exists. */
+/** Check API status and load complaints concurrently to avoid sequential wait. */
 function AppInit() {
   const { checkApi, loadComplaints } = useStore();
   const { token }                    = useAuthStore();
   useEffect(() => {
-    checkApi().then((online) => {
-      if (online && token) loadComplaints();
-    });
+    checkApi();
+    if (token) loadComplaints();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   return null;
@@ -79,7 +71,8 @@ export default function App() {
   return (
     <BrowserRouter>
       <AppInit />
-      <Routes>
+      <Suspense fallback={<div className="route-loading" role="status">Loading page…</div>}>
+        <Routes>
 
         {/* ── Default: redirect root → landing ── */}
         <Route path="/" element={<RootRedirect />} />
@@ -114,7 +107,8 @@ export default function App() {
           <Route path="*" element={<NotFound />} />
         </Route>
 
-      </Routes>
+        </Routes>
+      </Suspense>
     </BrowserRouter>
   );
 }

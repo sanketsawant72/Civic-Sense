@@ -82,6 +82,13 @@ input, select, textarea { font-family: var(--font); }
   flex-direction: column;
 }
 
+.route-loading {
+  min-height: 100svh;
+  display: grid;
+  place-items: center;
+  color: var(--text-light);
+}
+
 /* ── Typography ─────────────────────────────────────────────── */
 h1, h2, h3, h4, h5, h6 {
   font-family: var(--font);

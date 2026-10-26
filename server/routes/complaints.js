@@ -1,6 +1,13 @@
 import { Router } from 'express';
 import Complaint from '../models/Complaint.js';
 import { protect, requireRole } from '../middleware/auth.js';
+import {
+  distanceInMeters,
+  DUPLICATE_RADIUS_METERS,
+  DUPLICATE_SIMILARITY_THRESHOLD,
+  isValidLocation,
+  textSimilarity,
+} from '../utils/complaintSimilarity.js';
 
 const router = Router();
 
@@ -55,6 +62,49 @@ router.get('/:id', protect, asyncHandler(async (req, res) => {
   }
 
   res.json(c);
+}));
+
+// ── POST /api/complaints/duplicates/check — likely nearby duplicates ──────────
+router.post('/duplicates/check', protect, requireRole('citizen'), asyncHandler(async (req, res) => {
+  const { title, description, category, lat, lng } = req.body;
+  if (
+    typeof title !== 'string' || typeof description !== 'string'
+    || typeof category !== 'string' || !isValidLocation(lat, lng)
+  ) {
+    return res.status(400).json({ error: 'Valid complaint details and location are required' });
+  }
+
+  const latitudeDelta = DUPLICATE_RADIUS_METERS / 111320;
+  const longitudeScale = Math.max(Math.cos((lat * Math.PI) / 180), 0.01);
+  const longitudeDelta = DUPLICATE_RADIUS_METERS / (111320 * longitudeScale);
+  const candidates = await Complaint.find({
+    category,
+    status: { $nin: ['Resolved', 'Rejected'] },
+    lat: { $gte: lat - latitudeDelta, $lte: lat + latitudeDelta },
+    lng: { $gte: lng - longitudeDelta, $lte: lng + longitudeDelta },
+  })
+    .select('cid title description category status lat lng submittedAt')
+    .lean();
+
+  const matches = candidates
+    .map((candidate) => {
+      const distanceMeters = distanceInMeters(lat, lng, candidate.lat, candidate.lng);
+      const similarity = textSimilarity({ title, description }, candidate);
+      return { candidate, distanceMeters, similarity };
+    })
+    .filter(({ distanceMeters, similarity }) =>
+      distanceMeters <= DUPLICATE_RADIUS_METERS
+      && similarity >= DUPLICATE_SIMILARITY_THRESHOLD
+    )
+    .sort((a, b) => b.similarity - a.similarity || a.distanceMeters - b.distanceMeters)
+    .slice(0, 5)
+    .map(({ candidate, distanceMeters }) => ({
+      id: candidate.cid,
+      status: candidate.status,
+      distanceMeters: Math.round(distanceMeters),
+    }));
+
+  res.json({ matches });
 }));
 
 // ── POST /api/complaints  — citizens only ────────────────────────────────────
