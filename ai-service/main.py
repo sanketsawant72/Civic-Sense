@@ -242,7 +242,7 @@ def classify(req: ClassifyRequest):
     try:
         results = model.predict(
             source=np.array(img),
-            imgsz=416,
+            imgsz=320,
             conf=0.25,          # minimum confidence threshold
             iou=0.45,
             max_det=10,
