@@ -33,6 +33,25 @@ function unavailableResponse(error, code) {
   };
 }
 
+function classificationFailure(status) {
+  if (status === 400 || status === 422) {
+    return 'The AI service rejected this image. Try a valid JPG or PNG photo.';
+  }
+  if (status === 413) {
+    return 'The AI service rejected this image because it is too large. Try a smaller photo.';
+  }
+  if (status === 429) {
+    return 'The AI service is temporarily rate-limited. Wait a moment and try again.';
+  }
+  if (status === 502 || status === 503 || status === 504) {
+    return `The AI service is temporarily unavailable (HTTP ${status}). Check its deployment and logs, then try again.`;
+  }
+  if (status >= 500) {
+    return `The AI service failed while classifying this image (HTTP ${status}). Check the Python service logs for the inference error.`;
+  }
+  return `The AI service rejected the classification request (HTTP ${status}).`;
+}
+
 // ── GET /api/ai/health ────────────────────────────────────────────────────────
 // Returns AI service status — no auth required (used by AppShell banner)
 router.get('/health', asyncHandler(async (_req, res) => {
@@ -113,10 +132,12 @@ router.post('/classify', protect, asyncHandler(async (req, res) => {
   }
 
   if (!aiRes.ok) {
-    const body = await aiRes.json().catch(() => ({}));
+    const error = classificationFailure(aiRes.status);
+    console.error(`[AI proxy] Classification failed with HTTP ${aiRes.status}.`);
     return res.status(aiRes.status).json({
-      error:    body.detail || 'AI classification failed',
+      error,
       code:     'AI_CLASSIFICATION_FAILED',
+      upstreamStatus: aiRes.status,
       fallback: true,
     });
   }
