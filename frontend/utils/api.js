@@ -139,6 +139,8 @@ export async function checkHealth() {
  *   top_label: string,
  *   detected_objects: Array,
  *   ai_powered: boolean,
+ *   civic_model_ready: boolean,
+ *   warning?: string,
  *   fallback?: boolean
  * }>}
  */
@@ -158,6 +160,7 @@ export async function classifyImage(base64Image, filename = 'photo.jpg') {
       top_label:        '',
       detected_objects: [],
       ai_powered:       false,
+      civic_model_ready: false,
       fallback:         true,
       error:            err.message,
     };

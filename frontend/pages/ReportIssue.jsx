@@ -223,12 +223,15 @@ export default function ReportIssue() {
         result.fallback ||
         !knownCategory ||
         result.category === 'other' ||
+        result.civic_model_ready !== true ||
         result.confidence < PHOTO_CONFIDENCE_THRESHOLD
       ) {
         setAiStatus('error');
         setPhotoError(
           result.fallback
-            ? 'The AI photo check is offline. Your photo is still attached; choose the category that matches your report.'
+            ? `The AI service could not verify this photo: ${result.error || 'the service is unreachable'}. Your photo is attached but unverified. Check the API AI_SERVICE_URL and AI service deployment.`
+            : result.civic_model_ready !== true
+              ? result.warning || 'The AI service is connected, but no civic-issue-trained model is configured. This photo is not verified.'
             : 'We could not verify a civic issue in this photo. You can continue, but select the issue category manually; a clearer close-up may help verification.'
         );
         return;

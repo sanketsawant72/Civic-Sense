@@ -10,6 +10,10 @@ import aiRoutes         from './routes/ai.js';
 const app   = express();
 const PORT  = process.env.PORT       || 3001;
 const MONGO = process.env.MONGO_URI  || 'mongodb://127.0.0.1:27017/civicsense';
+const AI_CONFIGURED = Boolean(
+  process.env.AI_SERVICE_URL?.trim()
+  || (process.env.NODE_ENV !== 'production' && process.env.RENDER !== 'true')
+);
 
 // ── Middleware ────────────────────────────────────────────────────────────────
 app.use(cors({
@@ -24,8 +28,6 @@ app.use('/api/complaints',  complaintRoutes);
 app.use('/api/departments', departmentRoutes);
 app.use('/api/ai',          aiRoutes);
 
-const AI_URL = process.env.AI_SERVICE_URL || 'http://localhost:8000';
-
 app.get('/', (_req, res) => {
   res.json({
     service: 'CivicSense API',
@@ -38,7 +40,7 @@ app.get('/api/health', (_req, res) => {
   res.json({
     ok:  true,
     db:  mongoose.connection.readyState === 1 ? 'connected' : 'disconnected',
-    ai:  AI_URL,
+    ai:  AI_CONFIGURED ? 'configured' : 'not configured',
     ts:  Date.now(),
   });
 });

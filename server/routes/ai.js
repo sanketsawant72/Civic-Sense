@@ -12,21 +12,62 @@ import { Router } from 'express';
 import { protect } from '../middleware/auth.js';
 
 const router = Router();
-const AI_URL = process.env.AI_SERVICE_URL || 'http://localhost:8000';
+const IS_PRODUCTION = process.env.NODE_ENV === 'production' || process.env.RENDER === 'true';
+const AI_URL = (
+  process.env.AI_SERVICE_URL?.trim()
+  || (IS_PRODUCTION ? '' : 'http://localhost:8000')
+).replace(/\/+$/, '');
 
 function asyncHandler(fn) {
   return (req, res, next) => Promise.resolve(fn(req, res, next)).catch(next);
 }
 
+function unavailableResponse(error, code) {
+  return {
+    ok: false,
+    configured: Boolean(AI_URL),
+    reachable: false,
+    civicModelReady: false,
+    error,
+    code,
+  };
+}
+
 // ── GET /api/ai/health ────────────────────────────────────────────────────────
 // Returns AI service status — no auth required (used by AppShell banner)
 router.get('/health', asyncHandler(async (_req, res) => {
+  if (!AI_URL) {
+    return res.status(503).json(unavailableResponse(
+      'AI_SERVICE_URL is not configured on the API server.',
+      'AI_SERVICE_NOT_CONFIGURED'
+    ));
+  }
+
   try {
     const r = await fetch(`${AI_URL}/health`, { signal: AbortSignal.timeout(4000) });
+    if (!r.ok) {
+      return res.status(503).json(unavailableResponse(
+        `AI service health check failed with HTTP ${r.status}.`,
+        'AI_SERVICE_HEALTH_FAILED'
+      ));
+    }
     const data = await r.json();
-    res.json({ ok: data.ok === true, model: data.model || 'YOLOv8n' });
-  } catch {
-    res.json({ ok: false, model: null });
+    return res.json({
+      ok: data.ok === true,
+      configured: true,
+      reachable: true,
+      model: data.model || null,
+      civicModelReady: data.civic_model_ready === true,
+      warning: data.warning || null,
+    });
+  } catch (error) {
+    const timedOut = error.name === 'TimeoutError' || error.name === 'AbortError';
+    return res.status(503).json(unavailableResponse(
+      timedOut
+        ? 'AI service did not respond within 4 seconds. Check whether it is running or waking from sleep.'
+        : 'Could not connect to the AI service. Check the API server AI_SERVICE_URL and AI service deployment.',
+      timedOut ? 'AI_SERVICE_TIMEOUT' : 'AI_SERVICE_UNREACHABLE'
+    ));
   }
 }));
 
@@ -40,6 +81,16 @@ router.post('/classify', protect, asyncHandler(async (req, res) => {
     return res.status(400).json({ error: 'image (base64) is required' });
   }
 
+  if (!AI_URL) {
+    return res.status(503).json({
+      ...unavailableResponse(
+        'AI_SERVICE_URL is not configured on the API server.',
+        'AI_SERVICE_NOT_CONFIGURED'
+      ),
+      fallback: true,
+    });
+  }
+
   let aiRes;
   try {
     aiRes = await fetch(`${AI_URL}/classify`, {
@@ -49,12 +100,15 @@ router.post('/classify', protect, asyncHandler(async (req, res) => {
       signal:  AbortSignal.timeout(30_000), // 30 s — YOLO can be slow first run
     });
   } catch (err) {
-    // AI service is down — return graceful fallback instead of crashing
+    const timedOut = err.name === 'TimeoutError' || err.name === 'AbortError';
     return res.status(503).json({
-      error:      'AI service unavailable',
-      fallback:   true,
-      category:   'other',
-      confidence: 0,
+      ...unavailableResponse(
+        timedOut
+          ? 'AI classification timed out after 30 seconds. Check the AI service logs and model startup.'
+          : 'Could not connect to the AI service. Check the API server AI_SERVICE_URL and AI service deployment.',
+        timedOut ? 'AI_SERVICE_TIMEOUT' : 'AI_SERVICE_UNREACHABLE'
+      ),
+      fallback: true,
     });
   }
 
@@ -62,11 +116,16 @@ router.post('/classify', protect, asyncHandler(async (req, res) => {
     const body = await aiRes.json().catch(() => ({}));
     return res.status(aiRes.status).json({
       error:    body.detail || 'AI classification failed',
+      code:     'AI_CLASSIFICATION_FAILED',
       fallback: true,
     });
   }
 
   const result = await aiRes.json();
+  if (result.civic_model_ready !== true) {
+    result.warning = result.warning
+      || 'The service is using general-purpose model weights, not a civic-issue-trained model.';
+  }
   res.json(result);
 }));
 

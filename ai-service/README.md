@@ -58,18 +58,18 @@ Service runs on **http://localhost:8000**
 }
 ```
 
-The report form accepts a photo only when the classifier finds a direct civic-issue
-label at 40% confidence or higher, and blocks submission if the selected report
-category does not match the photo. Unrecognized images return `other`; everyday
-objects (for example cars, bottles, and traffic lights) are deliberately not used
-as evidence of an issue.
+The report form accepts a photo as AI-verified only when a civic-trained model finds
+a direct civic-issue label at 40% confidence or higher, and blocks submission if the
+selected report category does not match the photo. Unrecognized images return
+`other`; everyday objects (for example cars, bottles, and traffic lights) are
+deliberately not used as evidence of an issue.
 
 ## Custom model
 
-Replace `model/yolov8n.pt` with your fine-tuned weights and update
-the exact-label `LABEL_TO_CATEGORY` mapping in `main.py`. The stock YOLOv8 COCO
-weights do not recognize most civic conditions (including potholes, power faults,
-and illegal construction), so strict photo verification requires civic-issue
-weights trained to emit the supported labels. Until those weights are installed,
-the form rejects photos the model cannot verify rather than accepting unrelated
-images.
+Set `CIVIC_MODEL_PATH` to the model weights file path in the Python service
+environment, and update the exact-label `LABEL_TO_CATEGORY` mapping in `main.py`
+to match the trained model's labels. The stock YOLOv8 COCO weights are a
+general-purpose fallback and do not recognize most civic conditions (including
+potholes, power faults, and illegal construction). The health endpoint reports
+`civic_model_ready: false` while the fallback is active; the report form does not
+mark its predictions as civic verification.

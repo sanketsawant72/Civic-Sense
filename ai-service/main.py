@@ -14,6 +14,7 @@ Run:
 import io
 import base64
 import logging
+import os
 from pathlib import Path
 from typing import Optional
 
@@ -94,14 +95,28 @@ CATEGORY_LABELS = {
 }
 
 # ── Model loading ─────────────────────────────────────────────────────────────
-# Uses YOLOv8n (nano) by default — lightweight, fast, good for demo.
-# For production, fine-tune on civic dataset and point MODEL_PATH to weights.
-MODEL_PATH = Path(__file__).parent / "model" / "yolov8n.pt"
+DEFAULT_MODEL_PATH = Path(__file__).parent / "model" / "yolov8n.pt"
+CONFIGURED_MODEL_PATH = os.getenv("CIVIC_MODEL_PATH")
+MODEL_PATH = Path(CONFIGURED_MODEL_PATH).expanduser() if CONFIGURED_MODEL_PATH else DEFAULT_MODEL_PATH
 
-log.info("Loading YOLOv8 model…")
-# Ultralytics auto-downloads yolov8n.pt if not present locally
-model = YOLO(str(MODEL_PATH) if MODEL_PATH.exists() else "yolov8n.pt")
-log.info("Model loaded.")
+if CONFIGURED_MODEL_PATH and not MODEL_PATH.is_file():
+    raise RuntimeError(f"CIVIC_MODEL_PATH does not point to a model file: {MODEL_PATH}")
+
+CIVIC_MODEL_READY = bool(CONFIGURED_MODEL_PATH)
+MODEL_SOURCE = str(MODEL_PATH) if MODEL_PATH.is_file() else "yolov8n.pt (general-purpose COCO baseline)"
+MODEL_NAME = (
+    MODEL_PATH.name
+    if CIVIC_MODEL_READY
+    else f"{MODEL_PATH.name if MODEL_PATH.is_file() else 'yolov8n.pt'} (COCO baseline)"
+)
+MODEL_WARNING = None if CIVIC_MODEL_READY else (
+    "The general-purpose YOLOv8 COCO model is loaded. It is not trained to recognize "
+    "civic issues; configure CIVIC_MODEL_PATH with civic-trained weights for verification."
+)
+
+log.info("Loading YOLO model: %s", MODEL_SOURCE)
+model = YOLO(str(MODEL_PATH) if MODEL_PATH.is_file() else "yolov8n.pt")
+log.info("YOLO model loaded; civic model ready: %s", CIVIC_MODEL_READY)
 
 
 # ── Schemas ───────────────────────────────────────────────────────────────────
@@ -123,7 +138,9 @@ class ClassifyResponse(BaseModel):
     top_label: str         # raw YOLO label that drove the decision
     detected_objects: list[DetectedObject]
     ai_powered: bool = True
-    model: str = "YOLOv8n"
+    model: str = MODEL_NAME
+    civic_model_ready: bool = CIVIC_MODEL_READY
+    warning: Optional[str] = MODEL_WARNING
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
@@ -183,7 +200,13 @@ def pick_best_detection(results) -> tuple[str, str, float, list]:
 # ── Routes ────────────────────────────────────────────────────────────────────
 @app.get("/health")
 def health():
-    return {"ok": True, "model": "YOLOv8n", "service": "CivicSense AI"}
+    return {
+        "ok": True,
+        "model": MODEL_NAME,
+        "civic_model_ready": CIVIC_MODEL_READY,
+        "warning": MODEL_WARNING,
+        "service": "CivicSense AI",
+    }
 
 
 @app.post("/classify", response_model=ClassifyResponse)
@@ -224,4 +247,7 @@ def classify(req: ClassifyRequest):
         confidence=confidence,
         top_label=top_label,
         detected_objects=objects,
+        model=MODEL_NAME,
+        civic_model_ready=CIVIC_MODEL_READY,
+        warning=MODEL_WARNING,
     )
