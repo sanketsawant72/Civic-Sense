@@ -722,7 +722,7 @@ export default function ReportIssue() {
                     </div>
                   )}
 
-                  {aiStatus === 'error' && (
+                  {aiStatus === 'error' && !aiResult?.fallback && (
                     <div
                       className={`ai-classify-card ${aiResult?.fallback ? 'ai-classify-card--notice' : 'ai-classify-card--offline'}`}
                       role="status"
