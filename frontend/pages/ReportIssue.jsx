@@ -175,7 +175,7 @@ export default function ReportIssue() {
   function back() { setStep((s) => Math.max(s - 1, 1)); }
 
   // ── Photo handling ─────────────────────────────────────────────────────────
-  async function handleFile(file) {
+  async function handleFile(file, { cameraCapture = false } = {}) {
     if (!file) return;
     if (!file.type.startsWith('image/')) {
       setPhotoError('Please choose an image file showing the civic issue.');
@@ -198,12 +198,25 @@ export default function ReportIssue() {
       setPhoto(url);
 
       const locationPromise = extractGpsFromFile(file)
-        .then((photoGps) => {
+        .then(async (photoGps) => {
           if (requestId !== classificationRequestRef.current) return;
           if (photoGps) {
             setPosition([photoGps.lat, photoGps.lng]);
             setLocSource('exif');
             setExifStatus('found');
+          } else if (cameraCapture) {
+            setExifStatus('getting_device_location');
+            try {
+              const coords = await getDeviceLocation();
+              if (requestId !== classificationRequestRef.current) return;
+              setPosition([coords.lat, coords.lng]);
+              setLocSource('gps');
+              setExifStatus('device_found');
+            } catch (error) {
+              if (requestId !== classificationRequestRef.current) return;
+              setGpsError(error.message);
+              setExifStatus('not_found');
+            }
           } else {
             setExifStatus('choose_location');
           }
@@ -258,10 +271,10 @@ export default function ReportIssue() {
     }
   }
 
-  async function handlePhotoChange(e) {
+  async function handlePhotoChange(e, cameraCapture = false) {
     const file = e.target.files[0];
     e.target.value = '';
-    await handleFile(file);
+    await handleFile(file, { cameraCapture });
   }
   async function handleDrop(e) {
     e.preventDefault();
@@ -432,8 +445,9 @@ export default function ReportIssue() {
           <div className="step-content">
             <h2 className="step-title">Take or upload a photo first</h2>
             <p className="step-desc">
-              We’ll use GPS saved in the photo when available. Otherwise, choose whether
-              it was taken where you are now or pick its location on the map.
+              We’ll use GPS saved in the photo when available. For camera photos without GPS,
+              we’ll request your current device location. For gallery photos, you can choose
+              your current location or pin the photo location on the map.
             </p>
 
             {photo ? (
@@ -463,12 +477,20 @@ export default function ReportIssue() {
 
                 {/* Photo location */}
                 <div className="exif-result">
-                  {exifStatus === 'extracting' && (
+                  {(exifStatus === 'extracting' || exifStatus === 'getting_device_location') && (
                     <div className="exif-card exif-card--loading">
                       <div className="exif-spinner" aria-hidden="true" />
                       <div>
-                        <p className="exif-card__title">Checking photo GPS metadata…</p>
-                        <p className="exif-card__sub">If the photo has no saved GPS, you can choose where it was taken</p>
+                        <p className="exif-card__title">
+                          {exifStatus === 'getting_device_location'
+                            ? 'Getting your current location…'
+                            : 'Checking photo GPS metadata…'}
+                        </p>
+                        <p className="exif-card__sub">
+                          {exifStatus === 'getting_device_location'
+                            ? 'Allow location access to attach your camera location'
+                            : 'If the photo has no saved GPS, we’ll get your current location'}
+                        </p>
                       </div>
                     </div>
                   )}
@@ -831,7 +853,7 @@ export default function ReportIssue() {
 
             {/* Hidden inputs */}
             <input ref={fileRef}   type="file" accept="image/*"           className="sr-only" onChange={handlePhotoChange} />
-            <input ref={cameraRef} type="file" accept="image/*" capture="environment" className="sr-only" onChange={handlePhotoChange} />
+            <input ref={cameraRef} type="file" accept="image/*" capture="environment" className="sr-only" onChange={(e) => handlePhotoChange(e, true)} />
           </div>
         )}
 

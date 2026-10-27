@@ -36,7 +36,7 @@ Open **http://localhost:5173**. To run the optional AI image service too, instal
 
 The landing page is for citizens. Staff sign-in portals are available directly at `/admin/login` and `/department/login`; the citizen sign-in is `/login`.
 
-When a photo is added, the app reads GPS coordinates from its metadata when available. If it has no saved GPS, the reporter chooses whether it was taken at their current location or somewhere else; the current-location choice asks for browser permission, while the other-location choice opens a map to pin the photo's location. Device GPS requires a secure HTTPS origin (localhost is also allowed), and mobile browsers may also require location services to be enabled. An older or forwarded image without GPS metadata cannot reveal where it was originally taken from image pixels alone.
+When a photo is added, the app reads GPS coordinates from its metadata when available. For a photo taken with the in-app camera, it requests the device's current location automatically if the image has no GPS metadata. Gallery uploads let the reporter choose their current location or pin the photo's location on the map. Device GPS requires browser permission and a secure HTTPS origin (localhost is also allowed); mobile browsers may also require location services to be enabled. An older or forwarded image without GPS metadata cannot reveal where it was originally taken from image pixels alone.
 
 Before a report is saved, the API checks active complaints in the same category within 100 meters. It compares title and description using word overlap; likely matches are shown as a warning, and citizens can still choose to submit.
 
