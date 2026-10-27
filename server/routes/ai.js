@@ -15,7 +15,7 @@ const router = Router();
 const IS_PRODUCTION = process.env.NODE_ENV === 'production' || process.env.RENDER === 'true';
 const AI_URL = (
   process.env.AI_SERVICE_URL?.trim()
-  || (IS_PRODUCTION ? '' : 'http://localhost:8000')
+  || (IS_PRODUCTION ? '' : 'http://localhost:49200')
 ).replace(/\/+$/, '');
 
 function asyncHandler(fn) {

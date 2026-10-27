@@ -22,14 +22,14 @@ cd ai-service
 pip install -r requirements.txt
 
 # Set the Gemini key in ai-service/.env, then start the service
-uvicorn main:app --host 127.0.0.1 --port 8000 --reload
+uvicorn main:app --host 127.0.0.1 --port 49200 --reload
 ```
 
 `npm run dev:ai` installs the Python requirements before starting the service
-on port 8000, which is the port used by the Express API's local default.
+on port 49200, which is the port used by the Express API's local default.
 You can also install them from the project root with `npm run ai:install`.
 
-Service runs on **http://localhost:8000**
+Service runs on **http://localhost:49200**
 
 Set `GEMINI_API_KEY` in `ai-service/.env` to enable Gemini classification. Do not
 commit that file or expose the key in frontend code.
