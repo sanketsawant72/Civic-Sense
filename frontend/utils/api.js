@@ -142,7 +142,7 @@ export async function checkHealth() {
 // ── AI Classification ─────────────────────────────────────────────────────────
 
 /**
- * Send a base64 image to the YOLOv8 classifier via the Express proxy.
+ * Send a base64 image to the AI classifier via the Express proxy.
  * Returns the full classification result or a fallback object if AI is offline.
  *
  * @param {string} base64Image  - data URL or raw base64 string

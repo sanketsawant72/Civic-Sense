@@ -1,6 +1,8 @@
 # CivicSense AI Service
 
-YOLOv8-powered civic issue image classifier.
+Gemini-powered civic issue image classifier. The service uses the Gemini REST
+API when `GEMINI_API_KEY` is configured; without a key it returns a manual-review
+fallback so reports can still be submitted.
 
 ## Requirements
 - Python 3.10+
@@ -19,14 +21,18 @@ bash ai-service/start.sh
 cd ai-service
 pip install -r requirements.txt
 
-# Start the service
-uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+# Set the Gemini key in ai-service/.env, then start the service
+uvicorn main:app --host 127.0.0.1 --port 8000 --reload
 ```
 
-`npm run dev:ai` installs the Python requirements before starting the service.
+`npm run dev:ai` installs the Python requirements before starting the service
+on port 8000, which is the port used by the Express API's local default.
 You can also install them from the project root with `npm run ai:install`.
 
 Service runs on **http://localhost:8000**
+
+Set `GEMINI_API_KEY` in `ai-service/.env` to enable Gemini classification. Do not
+commit that file or expose the key in frontend code.
 
 ## Endpoints
 
@@ -51,18 +57,19 @@ Service runs on **http://localhost:8000**
   "category": "other",
   "category_label": "Other Civic Issue",
   "confidence": 0.0,
-  "top_label": "unknown",
+  "issue_description": "AI unavailable — please describe the issue manually.",
   "detected_objects": [],
-  "ai_powered": true,
-  "model": "YOLOv8n"
+  "urgency": "Normal",
+  "ai_powered": false,
+  "fallback": true
 }
 ```
 
-The report form accepts a photo as AI-verified only when a civic-trained model finds
-a direct civic-issue label at 40% confidence or higher, and blocks submission if the
-selected report category does not match the photo. Unrecognized images return
-`other`; everyday objects (for example cars, bottles, and traffic lights) are
-deliberately not used as evidence of an issue.
+With a configured Gemini key, responses include the detected category,
+description, confidence, urgency, model name, and `ai_powered: true`. The report
+form uses the returned category and confidence for photo verification. Gemini
+results are predictions and should be reviewed; they are not an accuracy
+guarantee.
 
 ## Train, test, and predict
 
@@ -141,9 +148,13 @@ python import_roboflow.py --zip "C:\Users\Sanket\Downloads\Civic Issues.v6-water
 ```powershell
 cd ai-service
 python -m pip install -r requirements.txt
+python -m pip install pyyaml ultralytics
 python civic_ml.py check-data --data civic-issues-v6/dataset.yaml
 python -m unittest test_civic_ml.py
 ```
+
+The second install is only needed for the optional dataset and YOLO training
+utilities; the running Gemini API service does not use those packages.
 
 The validator checks split directories, labels, class IDs, normalized boxes, and
 identical images leaking across splits. Fix every reported error before training.
@@ -177,30 +188,8 @@ python civic_ml.py predict --weights runs/civic/yolov8n/weights/best.pt --source
 Annotated images and `predictions.json` are written to `runs/predict/civic`.
 The default detection confidence is 0.4; change it with `--confidence`.
 
-### 5. Connect the trained model to the API
+### 5. Optional YOLO training tools
 
-The repository includes the current experimental weights at
-`model/civic-best.pt`; the service loads them by default when present. To use a
-different trained model, set `CIVIC_MODEL_PATH` to its file and restart the
-Python service:
-
-```powershell
-$env:CIVIC_MODEL_PATH = (Resolve-Path "runs/civic/yolov8n/weights/best.pt").Path
-python -m uvicorn main:app --host 0.0.0.0 --port 8000
-```
-
-The bundled weights are experimental and trained on only 175 images, with 25
-held-out test images. Pothole mAP50-95 was 0.259 on that small test set; do not
-interpret the health check as a guarantee of real-world accuracy. These weights
-cover pothole, garbage, drainage, streetlight, and other only. Water and
-construction are not covered. The model is included in the service source so
-Render can load it during deployment. Confirm `/health` reports
-`civic_model_ready: true`, then verify through the Express API
-`/api/ai/health`. Keep private datasets out of the source repository.
-
-The API accepts configured weights whose class names all map to supported
-CivicSense categories; a model may contain only the classes it was trained to
-recognize. Unsupported class names prevent startup so predictions cannot be
-silently reported as unrelated CivicSense categories. Passing this check confirms
-label compatibility only; review held-out test metrics and real-world samples
-before relying on predictions.
+The YOLO training and evaluation scripts above are optional utilities and are
+not used by the current Gemini-powered `main.py` service. They remain available
+for future model experiments; their outputs do not change the live service.

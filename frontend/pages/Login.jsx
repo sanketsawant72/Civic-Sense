@@ -61,15 +61,8 @@ export default function Login({ role = 'citizen' }) {
     try {
       const { token, user } = await loginApi(email.trim(), password);
 
-      if (user.role !== selectedRole) {
-        const portalName = ROLE_META[selectedRole].label.replace(' Portal', '');
-        throw new Error(`This account cannot sign in through the ${portalName} portal.`);
-      }
-
       setAuth({ token, user });
-
-      // Load complaints scoped to the actual role
-      await loadComplaints().catch(() => {}); // non-fatal
+      await loadComplaints().catch(() => {});
 
       if (user.role === 'admin')           navigate('/admin',      { replace: true });
       else if (user.role === 'department') navigate('/department', { replace: true });

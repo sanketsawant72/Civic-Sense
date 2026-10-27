@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "vite",
     "dev:server": "node server/index.js",
-    "dev:ai": "npm run ai:install && cd ai-service && python -m uvicorn main:app --host 0.0.0.0 --port 8000 --reload",
+    "dev:ai": "npm run ai:install && cd ai-service && python -m uvicorn main:app --host 127.0.0.1 --port 8000",
     "dev:full": "concurrently --names \"frontend,api,ai\" --prefix-colors \"cyan,yellow,magenta\" \"npm run dev\" \"npm run dev:server\" \"npm run dev:ai\"",
     "dev:no-ai": "concurrently --names \"frontend,api\" --prefix-colors \"cyan,yellow\" \"npm run dev\" \"npm run dev:server\"",
     "dev:local": "npm run setup:local && npm run dev:no-ai",

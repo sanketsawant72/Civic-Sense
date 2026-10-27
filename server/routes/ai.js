@@ -76,7 +76,7 @@ router.get('/health', asyncHandler(async (_req, res) => {
       configured: true,
       reachable: true,
       model: data.model || null,
-      civicModelReady: data.civic_model_ready === true,
+      civicModelReady: data.civic_model_ready === true || data.gemini_ready === true,
       warning: data.warning || null,
     });
   } catch (error) {
@@ -116,7 +116,7 @@ router.post('/classify', protect, asyncHandler(async (req, res) => {
       method:  'POST',
       headers: { 'Content-Type': 'application/json' },
       body:    JSON.stringify({ image, filename: filename || 'photo.jpg' }),
-      signal:  AbortSignal.timeout(90_000), // Allow cold-starting AI instances time to wake and load YOLO
+      signal:  AbortSignal.timeout(90_000), // Allow cold-starting AI instances time to wake.
     });
   } catch (err) {
     const timedOut = err.name === 'TimeoutError' || err.name === 'AbortError';
@@ -143,7 +143,7 @@ router.post('/classify', protect, asyncHandler(async (req, res) => {
   }
 
   const result = await aiRes.json();
-  if (result.civic_model_ready !== true) {
+  if (result.civic_model_ready !== true && result.ai_powered !== true) {
     result.warning = result.warning
       || 'The service is using general-purpose model weights, not a civic-issue-trained model.';
   }

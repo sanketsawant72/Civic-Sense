@@ -90,21 +90,6 @@
   color: var(--border);
 }
 
-.footer-db {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  margin-left: auto;
-}
-
-.footer-db__dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: var(--success);
-  display: inline-block;
-}
-
 @media (max-width: 640px) {
   .app-main { padding: 20px 0 36px; }
 }

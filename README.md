@@ -40,7 +40,7 @@ When a photo is added, the app reads GPS coordinates from its metadata when avai
 
 Before a report is saved, the API checks active complaints in the same category within 100 meters. It compares title and description using word overlap; likely matches are shown as a warning, and citizens can still choose to submit.
 
-If the optional AI service is offline, reports can still be submitted with a photo. The photo is attached but not marked as AI-verified, and the reporter chooses the issue category manually. The default YOLO model is not trained for civic issues; reliable civic photo verification requires deploying the AI service and providing civic-issue model weights as described in [ai-service/README.md](./ai-service/README.md).
+If the optional AI service is offline or `GEMINI_API_KEY` is not configured, reports can still be submitted with a photo. The photo is attached but not marked as AI-verified, and the reporter chooses the issue category manually. Configure the AI service with a Gemini API key for image classification; see [ai-service/README.md](./ai-service/README.md).
 
 ## Local login accounts
 
@@ -99,13 +99,13 @@ Frontend pages are loaded on demand so the initial download does not include map
 
 ### Enable production photo verification
 
-The Python AI verifier is a separate service; deploying the Vercel frontend and Express API does not deploy it. In Render, create a Python web service from this repository with root directory `ai-service`, build command `pip install -r requirements.txt`, and start command `uvicorn main:app --host 0.0.0.0 --port $PORT`. Wait for the Python service deployment to finish, then copy its public service URL.
+The Python AI verifier is a separate service; deploying the Vercel frontend and Express API does not deploy it. In Render, create a Python web service from this repository with root directory `ai-service`, build command `pip install -r requirements.txt`, and start command `uvicorn main:app --host 0.0.0.0 --port $PORT`. Set `GEMINI_API_KEY` in the Python service's Render environment (never in source code), deploy it, then copy its public service URL.
 
 In the **Express API** Render service (not Vercel and not the Python service), add `AI_SERVICE_URL` with that public URL, without `/health` or a trailing slash, and redeploy the API. The API runs separately from the Python service, so its production default is intentionally not `localhost:8000`. Verify the connection at `<your-api-url>/api/ai/health`: `ok` and `reachable` should be `true`. If not, inspect the returned `error` and check the API's `AI_SERVICE_URL` plus the Python service's Render logs.
 
-Being reachable does not by itself mean photo classification is accurate. The AI service source currently bundles experimental civic-trained weights and loads them by default; health reports `civicModelReady: true` when those weights are loaded. They cover pothole, garbage, drainage, streetlight, and other, but not water or construction. Their held-out test set has only 25 images, so this is an early experiment—not a production accuracy guarantee. Replace the bundled weights with a better evaluated model before relying on automated photo verification.
+Being reachable does not by itself mean photo classification is accurate. The AI service uses Gemini when `GEMINI_API_KEY` is configured; `/api/ai/health` reports `civicModelReady: true` when Gemini is configured or a civic model is loaded. AI results should still be reviewed before relying on automated photo verification.
 
-If photo classification fails, redeploy the Express API and retry; the report form now shows the upstream HTTP status and a next step. For HTTP 500, inspect the Python service logs for the inference error. For HTTP 502–504, check whether the Python service is starting, sleeping, or failing deployment. For HTTP 413, try a smaller image. A healthy `/api/ai/health` with `civicModelReady: false` means the service is reachable but civic-trained weights are not configured.
+If photo classification fails, redeploy the Express API and retry; the report form now shows the upstream HTTP status and a next step. For HTTP 500, inspect the Python service logs for the inference error. For HTTP 502–504, check whether the Python service is starting, sleeping, or failing deployment. For HTTP 413, try a smaller image. A healthy `/api/ai/health` with `civicModelReady: false` means Gemini is not configured and no civic-trained weights are loaded.
 
 If the Python service URL itself returns HTTP 502 (especially with the
 `x-render-routing: no-deploy` response header), Render has no live deployment to
